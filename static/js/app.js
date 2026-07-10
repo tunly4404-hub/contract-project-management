@@ -883,6 +883,7 @@ function openProjectModal(title = "เพิ่มโครงการสัญ
     document.getElementById("form-right-assignment-percentage").value = "";
     document.getElementById("form-guarantee-bank").value = "";
     document.getElementById("form-guarantee-expiry-date").value = "";
+    document.getElementById("form-guarantee-receipt-number").value = "";
     
     toggleBankGuaranteeFields();
     toggleRightAssignmentPercentageInput();
@@ -903,6 +904,7 @@ async function saveProject(event) {
     const guaranteeReceiptDate = document.getElementById("form-guarantee-receipt-date").value || null;
     const workOrderDate = document.getElementById("form-work-order-date").value || null;
     const contractSigningDate = document.getElementById("form-contract-signing-date").value || null;
+    const guaranteeReceiptNumber = document.getElementById("form-guarantee-receipt-number").value || null;
     
     let contractorVal = document.getElementById("form-contractor").value;
     if (contractorVal === "ADD_NEW") {
@@ -960,6 +962,7 @@ async function saveProject(event) {
         guarantee_payment_type: paymentTypeVal,
         guarantee_receipt_status: document.getElementById("form-guarantee-receipt-status").value,
         guarantee_receipt_date: guaranteeReceiptDate,
+        guarantee_receipt_number: guaranteeReceiptNumber,
         
         work_order_date: workOrderDate,
         guarantee_bank: bankVal,
@@ -1048,6 +1051,7 @@ function editProject(id) {
     document.getElementById("form-guarantee-payment-type").value = project.guarantee_payment_type || "หนังสือค้ำประกันธนาคาร (LG)";
     document.getElementById("form-guarantee-receipt-status").value = project.guarantee_receipt_status || "ยังไม่ได้รับ";
     document.getElementById("form-guarantee-receipt-date").value = project.guarantee_receipt_date || "";
+    document.getElementById("form-guarantee-receipt-number").value = project.guarantee_receipt_number || "";
     
     document.getElementById("form-work-order-date").value = project.work_order_date || "";
     document.getElementById("form-right-assignment").value = project.right_assignment || "ไม่ได้โอนสิทธิ์";
@@ -1169,6 +1173,7 @@ async function openDetailModal(id) {
             receiptText += ` (${formatThaiDate(project.guarantee_receipt_date)})`;
         }
         document.getElementById("detail-guarantee-receipt-status").innerText = receiptText;
+        document.getElementById("detail-guarantee-receipt-number").innerText = project.guarantee_receipt_number || "-";
         
         // V5 Project Audit Trail bindings
         document.getElementById("detail-project-created-by").innerText = project.created_by || "system";

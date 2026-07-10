@@ -650,16 +650,22 @@
                             </div>
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">สถานะใบเสร็จหลักประกัน</label>
-                            <select id="form-guarantee-receipt-status" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                                <option value="ยังไม่ได้รับ">ยังไม่ได้รับ</option>
-                                <option value="ได้รับแล้ว">ได้รับแล้ว</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ออกเอกสารหลักประกัน</label>
-                            <input type="date" id="form-guarantee-receipt-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">สถานะใบเสร็จหลักประกัน</label>
+                                <select id="form-guarantee-receipt-status" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                    <option value="ยังไม่ได้รับ">ยังไม่ได้รับ</option>
+                                    <option value="ได้รับแล้ว">ได้รับแล้ว</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">เลขที่ใบเสร็จรับเงินหลักประกัน</label>
+                                <input type="text" id="form-guarantee-receipt-number" placeholder="ระบุเลขที่ใบเสร็จ..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ออกเอกสารหลักประกัน</label>
+                                <input type="date" id="form-guarantee-receipt-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -746,6 +752,8 @@
                             <span id="detail-guarantee-expiry-date" class="text-slate-800 text-right hidden">-</span>
                             <span class="text-slate-400 font-medium">สถานะใบเสร็จค้ำ:</span>
                             <span id="detail-guarantee-receipt-status" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">เลขที่ใบเสร็จค้ำ:</span>
+                            <span id="detail-guarantee-receipt-number" class="text-slate-800 text-right">-</span>
                         </div>
                     </div>
 
@@ -1196,6 +1204,6 @@
     </div>
 
     <!-- JS Core Logic App -->
-    <script src="/static/js/app.js?v=1.0.4"></script>
+    <script src="/static/js/app.js?v=1.0.5"></script>
 </body>
 </html>

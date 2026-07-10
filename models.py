@@ -37,6 +37,7 @@ class Project(Base):
     guarantee_receipt_date = Column(Date, nullable=True)
     guarantee_receipt_path = Column(String, nullable=True)
     guarantee_receipt_filename = Column(String, nullable=True)
+    guarantee_receipt_number = Column(String, nullable=True)
 
     # V3 Fields
     work_order_date = Column(Date, nullable=True)
