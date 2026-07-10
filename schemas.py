@@ -165,6 +165,8 @@ class ProjectBase(BaseModel):
     guarantee_receipt_path: Optional[str] = None
     guarantee_receipt_filename: Optional[str] = None
     guarantee_receipt_number: Optional[str] = None
+    guarantee_document_path: Optional[str] = None
+    guarantee_document_filename: Optional[str] = None
     
     # V3 fields
     work_order_date: Optional[date] = None
@@ -204,6 +206,8 @@ class ProjectUpdate(BaseModel):
     guarantee_receipt_path: Optional[str] = None
     guarantee_receipt_filename: Optional[str] = None
     guarantee_receipt_number: Optional[str] = None
+    guarantee_document_path: Optional[str] = None
+    guarantee_document_filename: Optional[str] = None
     
     # V3 fields
     work_order_date: Optional[date] = None

@@ -672,6 +672,64 @@ def delete_guarantee_receipt(project_id: int, username: str = Depends(get_curren
     return db_project
 
 
+# Guarantee Document - LG / Slip (Secured)
+@app.post("/api/projects/{project_id}/guarantee-document", response_model=schemas.Project)
+def upload_guarantee_document(
+    project_id: int,
+    file: UploadFile = File(...),
+    username: str = Depends(get_current_user_username),
+    db: Session = Depends(get_db)
+):
+    db_project = crud.get_project(db, project_id=project_id)
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    validate_uploaded_file(file)
+    
+    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    safe_filename = f"guar_doc_{timestamp}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, safe_filename)
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        
+    db_project.guarantee_document_path = f"/uploads/{safe_filename}"
+    db_project.guarantee_document_filename = file.filename
+    db_project.updated_by = username
+    db_project.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_project)
+    crud.log_user_action(db, username, "สร้าง", "หลักฐานการค้ำประกัน", file.filename, f"อัปโหลดหลักฐานการค้ำประกันโครงการ '{db_project.name}'")
+    return db_project
+
+@app.delete("/api/projects/{project_id}/guarantee-document", response_model=schemas.Project)
+def delete_guarantee_document(project_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+    db_project = crud.get_project(db, project_id=project_id)
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    if db_project.guarantee_document_path:
+        filename = os.path.basename(db_project.guarantee_document_path)
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+        orig_filename = db_project.guarantee_document_filename
+        db_project.guarantee_document_path = None
+        db_project.guarantee_document_filename = None
+        db_project.updated_by = username
+        db_project.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(db_project)
+        crud.log_user_action(db, username, "ลบ", "หลักฐานการค้ำประกัน", orig_filename, f"ลบหลักฐานการค้ำประกันโครงการ '{db_project.name}'")
+    return db_project
+
+
 # Mount Static and Uploads directories
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

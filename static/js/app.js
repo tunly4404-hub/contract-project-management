@@ -1019,6 +1019,21 @@ async function saveProject(event) {
                 throw new Error(errData.detail || "Failed to upload guarantee receipt file");
             }
         }
+
+        const guarDocInput = document.getElementById("form-guarantee-document-file");
+        if (guarDocInput && guarDocInput.files.length > 0) {
+            const formData = new FormData();
+            formData.append("file", guarDocInput.files[0]);
+            
+            const uploadResponse = await secureFetch(`/api/projects/${savedProject.id}/guarantee-document`, {
+                method: "POST",
+                body: formData
+            });
+            if (!uploadResponse.ok) {
+                const errData = await uploadResponse.json();
+                throw new Error(errData.detail || "Failed to upload guarantee document file");
+            }
+        }
         
         closeProjectModal();
         initApp(); 
@@ -1181,6 +1196,7 @@ async function openDetailModal(id) {
         document.getElementById("detail-project-updated-by").innerText = project.updated_by || "system";
         document.getElementById("detail-project-updated-at").innerText = formatTimestamp(project.updated_at);
         
+        renderGuaranteeDocumentFile(project);
         renderGuaranteeReceiptFile(project);
         renderDocumentsList(project.documents);
         setupDeliverablesDynamicFormAndHeader(project);
@@ -1294,6 +1310,106 @@ async function deleteGuaranteeReceipt(id) {
     } catch (error) {
         console.error("Error deleting receipt:", error);
         alert("เกิดข้อผิดพลาดในการลบไฟล์: " + error.message);
+    }
+}
+
+function renderGuaranteeDocumentFile(project) {
+    const fileContainer = document.getElementById("detail-guarantee-document-file-container");
+    const uploadContainer = document.getElementById("detail-guarantee-document-upload-container");
+    
+    fileContainer.innerHTML = "";
+    document.getElementById("detail-guarantee-document-input").value = "";
+    
+    const isAdmin = isCurrentUserAdmin();
+    
+    if (project.guarantee_document_path) {
+        uploadContainer.classList.add("hidden");
+        
+        const deleteButton = isAdmin 
+            ? `
+            <button onclick="deleteGuaranteeDocument(${project.id})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบหลักฐานค้ำประกัน">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
+            ` 
+            : "";
+        
+        fileContainer.innerHTML = `
+            <div class="flex items-center space-x-2 min-w-0 flex-1">
+                <svg class="h-4 w-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="font-medium text-slate-700 truncate" title="${project.guarantee_document_filename}">${project.guarantee_document_filename}</span>
+            </div>
+            <div class="flex items-center space-x-1.5 ml-3">
+                <a href="${project.guarantee_document_path}" target="_blank" download class="text-slate-500 hover:text-slate-700 p-1 rounded hover:bg-slate-100 transition duration-150" title="ดาวน์โหลดหลักฐาน">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                </a>
+                ${deleteButton}
+            </div>
+        `;
+    } else {
+        uploadContainer.classList.remove("hidden");
+        fileContainer.innerHTML = `
+            <span class="text-slate-400 italic">ยังไม่ได้อัปโหลดหลักฐานการค้ำประกัน</span>
+        `;
+    }
+}
+
+async function uploadGuaranteeDocument() {
+    const fileInput = document.getElementById("detail-guarantee-document-input");
+    if (fileInput.files.length === 0) {
+        alert("กรุณาเลือกไฟล์ก่อนอัปโหลด");
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    
+    try {
+        showLoading("กำลังอัปโหลดไฟล์หลักฐานการค้ำประกัน...");
+        const response = await secureFetch(`/api/projects/${currentProjectId}/guarantee-document`, {
+            method: "POST",
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Failed to upload file");
+        }
+        
+        openDetailModal(currentProjectId);
+    } catch (error) {
+        console.error("Error uploading document:", error);
+        alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์: " + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deleteGuaranteeDocument(id) {
+    if (!confirm("คุณแน่ใจว่าต้องการลบไฟล์หลักฐานการค้ำประกันนี้?")) return;
+    
+    try {
+        showLoading("กำลังลบไฟล์หลักฐานการค้ำประกัน...");
+        const response = await secureFetch(`/api/projects/${id}/guarantee-document`, {
+            method: "DELETE"
+        });
+        if (response.status === 403) {
+            const err = await response.json();
+            alert(err.detail || "สิทธิ์ไม่เพียงพอสำหรับการลบหลักฐานการค้ำประกัน");
+            return;
+        }
+        if (!response.ok) throw new Error("Failed to delete document");
+        openDetailModal(currentProjectId);
+    } catch (error) {
+        console.error("Error deleting document:", error);
+        alert("เกิดข้อผิดพลาดในการลบไฟล์: " + error.message);
+    } finally {
+        hideLoading();
     }
 }
 

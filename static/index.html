@@ -673,13 +673,17 @@
                 <!-- Section 5: อัปโหลดแนบเอกสาร (เฉพาะการเพิ่มรายการใหม่) -->
                 <div id="upload-section" class="space-y-4">
                     <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">5. อัปโหลดเอกสารแนบสัญญาครั้งแรก</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 uppercase">แนบไฟล์โครงการสัญญา (TOR / สัญญาลงนาม)</label>
                             <input type="file" id="form-file" class="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl p-1 bg-slate-50">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">แนบไฟล์หลักฐานค้ำประกัน (Receipt/LG File) <span class="text-[10px] text-slate-400">(สูงสุด 10MB)</span></label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">แนบหลักฐานค้ำประกัน <span class="text-[10px] text-slate-400">(หนังสือ LG / สลิปโอน)</span></label>
+                            <input type="file" id="form-guarantee-document-file" class="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl p-1 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">แนบใบเสร็จค้ำประกัน <span class="text-[10px] text-slate-400">(ใบเสร็จจากหน่วยงาน)</span></label>
                             <input type="file" id="form-guarantee-receipt-file" class="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl p-1 bg-slate-50">
                         </div>
                     </div>
@@ -757,9 +761,21 @@
                         </div>
                     </div>
 
+                    <!-- Guarantee Document (LG/Slip) file box -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-3 text-xs">
+                        <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">เอกสารหลักฐานการค้ำประกัน (หนังสือ LG / สลิปโอน)</h4>
+                        <div id="detail-guarantee-document-file-container" class="flex items-center justify-between bg-white border border-slate-200 p-2.5 rounded-xl">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <div id="detail-guarantee-document-upload-container" class="hidden flex gap-2 mt-2">
+                            <input type="file" id="detail-guarantee-document-input" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-indigo-50 file:text-indigo-700 flex-1">
+                            <button onclick="uploadGuaranteeDocument()" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] px-2.5 py-1 font-semibold whitespace-nowrap">อัปโหลด</button>
+                        </div>
+                    </div>
+
                     <!-- Guarantee Receipt file box (V2) -->
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-3 text-xs">
-                        <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">เอกสารหลักฐานใบเสร็จค้ำประกัน</h4>
+                        <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">เอกสารใบเสร็จรับเงินค้ำประกัน (จากหน่วยงาน)</h4>
                         <div id="detail-guarantee-receipt-file-container" class="flex items-center justify-between bg-white border border-slate-200 p-2.5 rounded-xl">
                             <!-- Populated dynamically -->
                         </div>
@@ -1204,6 +1220,6 @@
     </div>
 
     <!-- JS Core Logic App -->
-    <script src="/static/js/app.js?v=1.0.5"></script>
+    <script src="/static/js/app.js?v=1.0.6"></script>
 </body>
 </html>
