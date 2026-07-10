@@ -571,7 +571,11 @@
                 <!-- Section 2: ระยะเวลาสัญญา -->
                 <div class="space-y-4">
                     <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">2. ระยะเวลาดำเนินงานหลัก</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ไปเซ็นสัญญา</label>
+                            <input type="date" id="form-contract-signing-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 uppercase">วันที่เริ่มต้นสัญญา <span class="text-rose-500">*</span></label>
                             <input type="date" id="form-start-date" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -592,14 +596,14 @@
                     <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">3. คู่ค้า / การส่งมอบแบบแสดงตัวตน</h4>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">สถานะใบเสร็จคู่สัญญา</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">การได้รับคู่ฉบับสัญญา</label>
                             <select id="form-counterpart-status" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                                 <option value="ยังไม่ได้รับ">ยังไม่ได้รับ</option>
                                 <option value="ได้รับแล้ว">ได้รับแล้ว</option>
                             </select>
                         </div>
                         <div class="md:col-span-2">
-                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่รับเอกสารคู่สัญญา</label>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ได้รับคู่ฉบับสัญญา</label>
                             <input type="date" id="form-counterpart-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         </div>
                     </div>
@@ -717,13 +721,15 @@
                             <span id="detail-job-type" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">งบประมาณรวม:</span>
                             <span id="detail-budget" class="font-semibold text-slate-900 text-right">฿0.00</span>
+                            <span class="text-slate-400 font-medium">วันเซ็นสัญญา:</span>
+                            <span id="detail-contract-signing-date" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">วันเริ่มต้นสัญญา:</span>
                             <span id="detail-start-date" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">วันสิ้นสุดสัญญา:</span>
                             <span id="detail-end-date" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">วันสั่งเข้างาน:</span>
                             <span id="detail-work-order-date" class="text-slate-800 text-right">-</span>
-                            <span class="text-slate-400 font-medium">สถานะเอกสารคู่ค้า:</span>
+                            <span class="text-slate-400 font-medium">การได้รับคู่ฉบับสัญญา:</span>
                             <span id="detail-counterpart-status" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">การโอนสิทธิ์:</span>
                             <span id="detail-right-assignment" class="text-slate-800 text-right">-</span>

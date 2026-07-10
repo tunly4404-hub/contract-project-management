@@ -150,6 +150,7 @@ class ProjectBase(BaseModel):
     budget: float
     start_date: date
     end_date: date
+    contract_signing_date: Optional[date] = None
     status: str = "กำลังดำเนินการ"
     
     # V2 fields
@@ -187,6 +188,7 @@ class ProjectUpdate(BaseModel):
     budget: Optional[float] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    contract_signing_date: Optional[date] = None
     status: Optional[str] = None
     
     # V2 fields

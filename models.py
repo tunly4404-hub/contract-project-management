@@ -23,6 +23,7 @@ class Project(Base):
     budget = Column(Float, nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
+    contract_signing_date = Column(Date, nullable=True)
     status = Column(String, nullable=False, default="กำลังดำเนินการ") # กำลังดำเนินการ, ล่าช้า, ส่งมอบแล้ว
 
     # V2 Fields

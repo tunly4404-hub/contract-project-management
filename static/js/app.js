@@ -875,6 +875,7 @@ function openProjectModal(title = "เพิ่มโครงการสัญ
     populateJobTypesDropdown();
     document.getElementById("form-custom-job-type").value = "";
     
+    document.getElementById("form-contract-signing-date").value = "";
     document.getElementById("form-work-order-date").value = "";
     document.getElementById("form-right-assignment").value = "ไม่ได้โอนสิทธิ์";
     document.getElementById("form-right-assignment-percentage").value = "";
@@ -899,6 +900,7 @@ async function saveProject(event) {
     const counterpartDate = document.getElementById("form-counterpart-date").value || null;
     const guaranteeReceiptDate = document.getElementById("form-guarantee-receipt-date").value || null;
     const workOrderDate = document.getElementById("form-work-order-date").value || null;
+    const contractSigningDate = document.getElementById("form-contract-signing-date").value || null;
     
     let contractorVal = document.getElementById("form-contractor").value;
     if (contractorVal === "ADD_NEW") {
@@ -946,6 +948,7 @@ async function saveProject(event) {
         status: document.getElementById("form-status").value,
         start_date: document.getElementById("form-start-date").value,
         end_date: document.getElementById("form-end-date").value,
+        contract_signing_date: contractSigningDate,
         
         contract_number: document.getElementById("form-contract-number").value || null,
         contractor: contractorVal || null,
@@ -1031,6 +1034,7 @@ function editProject(id) {
     document.getElementById("form-status").value = project.status;
     document.getElementById("form-start-date").value = project.start_date;
     document.getElementById("form-end-date").value = project.end_date;
+    document.getElementById("form-contract-signing-date").value = project.contract_signing_date || "";
     
     document.getElementById("form-contract-number").value = project.contract_number || "";
     document.getElementById("form-counterpart-status").value = project.counterpart_status || "ยังไม่ได้รับ";
@@ -1113,6 +1117,7 @@ async function openDetailModal(id) {
         document.getElementById("detail-contractor").innerText = project.contractor || "-";
         document.getElementById("detail-job-type").innerText = project.job_type || "-";
         document.getElementById("detail-budget").innerText = formatCurrency(project.budget);
+        document.getElementById("detail-contract-signing-date").innerText = formatThaiDate(project.contract_signing_date);
         document.getElementById("detail-start-date").innerText = formatThaiDate(project.start_date);
         document.getElementById("detail-end-date").innerText = formatThaiDate(project.end_date);
         document.getElementById("detail-work-order-date").innerText = formatThaiDate(project.work_order_date);
