@@ -1,0 +1,21 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# SQLite Local Database (Do not upload to git, Render will use sqlite locally or separate mounting)
+projects.db
+
+# User Uploaded Files (Should not be in git)
+uploads/
+uploads/pos/
+uploads/deliveries/
+
+# System generated or OS files
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.log

@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบริหารจัดการสัญญาและโครงการ (Contract & Project Management System)</title>
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Prompt', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+
+    <!-- AUTHENTICATION PANELS OVERLAYS (V5) -->
+    <div id="auth-container" class="min-h-screen flex items-center justify-center bg-gradient-to-tr from-indigo-100 via-slate-50 to-blue-50 p-4">
+        <!-- Login Card -->
+        <div id="login-card" class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-8 space-y-6 animate-fade-in">
+            <div class="text-center">
+                <div class="inline-flex p-3 bg-indigo-50 rounded-2xl text-indigo-600 mb-3">
+                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">เข้าสู่ระบบ</h2>
+                <p class="text-xs text-slate-500 mt-1">ระบบบริหารจัดการสัญญา โครงการ และใบสั่งซื้อ</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase">ชื่อผู้ใช้งาน (Username)</label>
+                    <input type="text" id="login-username" required placeholder="ระบุ username..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase">รหัสผ่าน (Password)</label>
+                    <input type="password" id="login-password" required placeholder="ระบุรหัสผ่าน..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                </div>
+                <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100 flex items-center justify-center">
+                    เข้าสู่ระบบ
+                </button>
+            </form>
+            <div class="text-center pt-2 border-t border-slate-100 text-xs">
+                <span class="text-slate-400">ยังไม่มีบัญชีผู้ใช้?</span>
+                <button onclick="toggleAuthCard('register')" class="ml-1 text-indigo-600 hover:text-indigo-800 font-bold transition duration-150">สมัครสมาชิกใหม่</button>
+            </div>
+        </div>
+
+        <!-- Register Card -->
+        <div id="register-card" class="hidden bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-8 space-y-6 animate-fade-in">
+            <div class="text-center">
+                <div class="inline-flex p-3 bg-indigo-50 rounded-2xl text-indigo-600 mb-3">
+                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">สมัครสมาชิกใหม่</h2>
+                <p class="text-xs text-slate-500 mt-1">กรอกข้อมูลผู้ใช้เพื่อเพิ่มลงระบบ</p>
+            </div>
+            <form onsubmit="handleRegister(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase">ชื่อจริง - นามสกุล</label>
+                    <input type="text" id="register-fullname" required placeholder="เช่น สมชาย ใจดี..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase">ชื่อผู้ใช้งาน (Username)</label>
+                    <input type="text" id="register-username" required placeholder="ระบุ username ภาษาอังกฤษ..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase">รหัสผ่าน (Password)</label>
+                    <input type="password" id="register-password" required placeholder="ระบุรหัสผ่าน..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                </div>
+                <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100 flex items-center justify-center">
+                    สมัครสมาชิก
+                </button>
+            </form>
+            <div class="text-center pt-2 border-t border-slate-100 text-xs">
+                <span class="text-slate-400">มีบัญชีผู้ใช้อยู่แล้ว?</span>
+                <button onclick="toggleAuthCard('login')" class="ml-1 text-indigo-600 hover:text-indigo-800 font-bold transition duration-150">ย้อนกลับไปล็อกอิน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER (V5) -->
+    <div id="app-container" class="hidden min-h-screen flex flex-col bg-slate-50/50">
+        <!-- Header / Navbar -->
+        <nav class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <!-- Logo -->
+                        <div class="flex-shrink-0 flex items-center">
+                            <svg class="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="ml-2 font-bold text-xl text-slate-900 tracking-wide">ระบบจัดการสัญญาและโครงการ</span>
+                        </div>
+                        <!-- Navigation Tabs -->
+                        <div class="hidden sm:ml-10 sm:flex sm:space-x-8">
+                            <button id="tab-dashboard" onclick="switchTab('dashboard')" class="border-transparent text-indigo-600 hover:text-indigo-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-semibold tab-active">
+                                Dashboard
+                            </button>
+                            <button id="tab-projects" onclick="switchTab('projects')" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                รายชื่อโครงการ
+                            </button>
+                            <button id="tab-purchase-orders" onclick="switchTab('purchase-orders')" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                ระบบใบสั่งซื้อ (PO)
+                            </button>
+                            <button id="tab-users" onclick="switchTab('users')" class="hidden border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                จัดการผู้ใช้งาน
+                            </button>
+                        </div>
+                    </div>
+                    <!-- V5 Top-Right Profile & Logout -->
+                    <div class="flex items-center text-sm text-slate-600 gap-3">
+                        <div class="flex items-center gap-2">
+                            <div class="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold shadow-sm shadow-indigo-100" id="user-avatar-initial">
+                                U
+                            </div>
+                            <span id="user-fullname-display" class="font-semibold text-slate-800">ผู้ใช้งาน</span>
+                        </div>
+                        <button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition duration-150 flex items-center gap-1">
+                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            ออกจากระบบ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+            <!-- 1. DASHBOARD VIEW -->
+            <section id="view-dashboard" class="space-y-8 animate-fade-in">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                    <!-- Stat Card: Total -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">โครงการทั้งหมด</p>
+                                <h3 id="stat-total" class="text-3xl font-bold text-slate-900 mt-2">0</h3>
+                            </div>
+                            <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Stat Card: Active -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">กำลังดำเนินการ</p>
+                                <h3 id="stat-active" class="text-3xl font-bold text-blue-600 mt-2">0</h3>
+                            </div>
+                            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Stat Card: Delayed -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ดำเนินงานล่าช้า</p>
+                                <h3 id="stat-delayed" class="text-3xl font-bold text-rose-600 mt-2">0</h3>
+                            </div>
+                            <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Stat Card: Delivered -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">ส่งมอบงานแล้ว</p>
+                                <h3 id="stat-delivered" class="text-3xl font-bold text-emerald-600 mt-2">0</h3>
+                            </div>
+                            <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Stat Card: Active Budget -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover-card md:col-span-2 lg:col-span-1">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">งบประมาณรวมที่กำลังทำ</p>
+                                <h3 id="stat-active-budget" class="text-2xl font-bold text-indigo-600 mt-2">฿0</h3>
+                            </div>
+                            <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts Section & Project Status List -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Alerts (Left 2 columns on desktop) -->
+                    <div class="lg:col-span-2 space-y-8">
+                        <!-- 1. Contract Milestones Alerts -->
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
+                                    <h2 class="text-lg font-bold text-slate-900">แจ้งเตือนกำหนดส่งมอบงาน/วัสดุสัญญาหลัก (ใน 14 วัน)</h2>
+                                </div>
+                                <span id="alert-count" class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-bold">0 รายการ</span>
+                            </div>
+                            <div id="alerts-container" class="space-y-4 max-h-[250px] overflow-y-auto pr-1">
+                                <!-- Alert Item Template (Rendered dynamically) -->
+                            </div>
+                        </div>
+
+                        <!-- 2. PO Delivery Alerts (V4) -->
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <svg class="h-6 w-6 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <h2 class="text-lg font-bold text-slate-900">แจ้งเตือนการส่งมอบใบสั่งซื้อ PO (ใกล้ครบกำหนด 7 วัน/เลยกำหนด)</h2>
+                                </div>
+                                <span id="po-alert-count" class="bg-rose-100 text-rose-800 text-xs px-2.5 py-1 rounded-full font-bold">0 รายการ</span>
+                            </div>
+                            <div id="po-alerts-container" class="space-y-4 max-h-[250px] overflow-y-auto pr-1">
+                                <!-- PO Alert Item Template (Rendered dynamically) -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activities or Quick Links (Right column) -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
+                        <h3 class="font-bold text-slate-900 text-lg flex items-center border-b border-slate-100 pb-3">
+                            <svg class="h-5 w-5 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            คำแนะนำระบบ
+                        </h3>
+                        <div class="space-y-4 text-sm text-slate-600">
+                            <div class="flex items-start">
+                                <div class="h-2 w-2 rounded-full bg-indigo-500 mt-1.5 mr-3 flex-shrink-0"></div>
+                                <p><b>การแจ้งเตือนงาน/วัสดุ:</b> จะแสดงเมื่อรายการส่งมอบงานหรือวัสดุสัญญาที่มีสถานะ <b>"รอดำเนินการ"</b> มีกำหนดการส่งมอบที่ใกล้เข้ามาหรือล่าช้ากว่าปัจจุบัน (ไม่เกิน 14 วัน)</p>
+                            </div>
+                            <div class="flex items-start">
+                                <div class="h-2 w-2 rounded-full bg-indigo-500 mt-1.5 mr-3 flex-shrink-0"></div>
+                                <p><b>แจ้งเตือนส่งมอบ PO:</b> ระบบตรวจสอบใบสั่งซื้อ PO ที่ยังไม่ได้ส่งมอบและเหลือเวลาส่งมอบจริงน้อยกว่าหรือเท่ากับ 7 วัน รวมถึงรายการที่เลยกำหนด เพื่อป้องกันค่าปรับ</p>
+                            </div>
+                            <div class="flex items-start">
+                                <div class="h-2 w-2 rounded-full bg-indigo-500 mt-1.5 mr-3 flex-shrink-0"></div>
+                                <p><b>ระบบความปลอดภัย V5:</b> มีการเก็บบันทึกประวัติการสร้างและการเข้ามาแก้ไขโครงการและใบสั่งซื้อด้วย User ของคุณ (Audit Trail)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. PROJECTS VIEW -->
+            <section id="view-projects" class="hidden space-y-6 animate-fade-in">
+                <!-- Header and Actions -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">รายชื่อโครงการและสัญญา</h1>
+                        <p class="text-sm text-slate-500 mt-1">บริหารโครงการหลัก, สัญญาค้ำประกันการทำงาน และเอกสารสัญญาแนบ</p>
+                    </div>
+                    <button onclick="openProjectModal()" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100">
+                        <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        เพิ่มโครงการใหม่
+                    </button>
+                </div>
+
+                <!-- Filters & Search -->
+                <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex-1 relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <input type="text" id="search-input" onkeyup="filterProjects()" placeholder="ค้นหาตามชื่อโครงการ, เลขที่สัญญา, บริษัทที่รับผิดชอบ, ประเภทงาน..." class="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50/50">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">สถานะดำเนินการ:</label>
+                        <select id="status-filter" onchange="filterProjects()" class="border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="ทั้งหมด">ทั้งหมด</option>
+                            <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+                            <option value="ล่าช้า">ล่าช้า</option>
+                            <option value="ส่งมอบแล้ว">ส่งมอบแล้ว</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Projects Table -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs border-b border-slate-200">
+                                <tr>
+                                    <th scope="col" class="px-6 py-4">ID</th>
+                                    <th scope="col" class="px-6 py-4">ชื่อโครงการ</th>
+                                    <th scope="col" class="px-6 py-4">เจ้าของโครงการ / หน่วยงาน</th>
+                                    <th scope="col" class="px-6 py-4">งบประมาณรวม</th>
+                                    <th scope="col" class="px-6 py-4">ระยะเวลาสัญญา</th>
+                                    <th scope="col" class="px-6 py-4">สถานะ</th>
+                                    <th scope="col" class="px-6 py-4 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-table-body" class="divide-y divide-slate-100 bg-white">
+                                <!-- Rows rendered dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="no-projects-message" class="hidden text-center py-12 text-slate-400">
+                        <svg class="h-12 w-12 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        </svg>
+                        ไม่พบข้อมูลโครงการตามตัวค้นหา
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. PURCHASE ORDERS (PO) VIEW -->
+            <section id="view-purchase-orders" class="hidden space-y-6 animate-fade-in">
+                <!-- Header and Actions -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">ระบบบริหารจัดการใบสั่งซื้อ (PO)</h1>
+                        <p class="text-sm text-slate-500 mt-1">บันทึกใบสั่งซื้อ, การกำหนดส่งมอบ และระบบติดตามใบส่งของแยกโครงการ</p>
+                    </div>
+                    <button onclick="openPOModal()" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100">
+                        <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        เพิ่มใบสั่งซื้อใหม่ (PO)
+                    </button>
+                </div>
+
+                <!-- Filters & Search -->
+                <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex-1 relative">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <input type="text" id="po-search-input" onkeyup="filterPOs()" placeholder="ค้นหาตามเลขที่ PO, ชื่อโครงการ, บริษัทที่รับผิดชอบ..." class="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50/50">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">สถานะส่งของ:</label>
+                        <select id="po-status-filter" onchange="filterPOs()" class="border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="ทั้งหมด">ทั้งหมด</option>
+                            <option value="ยังไม่ได้ส่ง">ยังไม่ได้ส่ง</option>
+                            <option value="ส่งมอบแล้ว">ส่งมอบแล้ว</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PO Table -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs border-b border-slate-200">
+                                <tr>
+                                    <th scope="col" class="px-6 py-4">เลขที่ PO</th>
+                                    <th scope="col" class="px-6 py-4">โครงการที่เชื่อมโยง</th>
+                                    <th scope="col" class="px-6 py-4">งบประมาณ PO</th>
+                                    <th scope="col" class="px-6 py-4">กำหนดส่งมอบ</th>
+                                    <th scope="col" class="px-6 py-4">ผู้รับผิดชอบ</th>
+                                    <th scope="col" class="px-6 py-4">สถานะส่งมอบ</th>
+                                    <th scope="col" class="px-6 py-4 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pos-table-body" class="divide-y divide-slate-100 bg-white">
+                                <!-- Rows rendered dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="no-pos-message" class="hidden text-center py-12 text-slate-400">
+                        <svg class="h-12 w-12 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        ไม่พบข้อมูลใบสั่งซื้อ PO
+                    </div>
+            </section>
+
+            <!-- 4. USER MANAGEMENT VIEW (Admin Only V5 RBAC) -->
+            <section id="view-users" class="hidden space-y-6 animate-fade-in">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">ระบบจัดการผู้ใช้งาน (User Management)</h1>
+                    <p class="text-sm text-slate-500 mt-1">สิทธิ์เฉพาะแอดมิน: ตรวจสอบผู้ใช้ทั้งหมดในระบบ, เปิด-ปิดระงับสิทธิ์บัญชีใช้งาน และลบบัญชีผู้ใช้</p>
+                </div>
+
+                <!-- Users Table -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs border-b border-slate-200">
+                                <tr>
+                                    <th scope="col" class="px-6 py-4">ID</th>
+                                    <th scope="col" class="px-6 py-4">ชื่อผู้ใช้ (Username)</th>
+                                    <th scope="col" class="px-6 py-4">ชื่อจริง - นามสกุล</th>
+                                    <th scope="col" class="px-6 py-4">ระดับสิทธิ์ (Role)</th>
+                                    <th scope="col" class="px-6 py-4">สถานะ (Status)</th>
+                                    <th scope="col" class="px-6 py-4 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body" class="divide-y divide-slate-100 bg-white">
+                                <!-- Rows rendered dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
+                <p>ระบบจัดการสัญญาและโครงการ v1.0.0 © 2026. พัฒนาโดย Antigravity AI.</p>
+                <p>OS: Windows | ฐานข้อมูล: SQLite | Backend: FastAPI</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MODAL 1: ADD/EDIT PROJECT FORM -->
+    <div id="project-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-2xl w-full overflow-hidden animate-fade-in">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+                <h3 id="modal-title" class="font-bold text-lg text-slate-900">เพิ่มโครงการสัญญาใหม่</h3>
+                <button onclick="closeProjectModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <!-- Modal Form Body -->
+            <form id="project-form" onsubmit="saveProject(event)" class="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
+                <input type="hidden" id="form-project-id">
+                
+                <!-- Section 1: ข้อมูลสัญญาหลัก -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">1. ข้อมูลสัญญาหลัก</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-700 uppercase">ชื่อโครงการสัญญา <span class="text-rose-500">*</span></label>
+                            <input type="text" id="form-name" required placeholder="เช่น โครงการจัดซื้อกล้องวงจรปิด..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เลขที่สัญญาโครงการ (Text)</label>
+                            <input type="text" id="form-contract-number" placeholder="เช่น CON-2026-009..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เจ้าของโครงการ / หน่วยงานผู้ว่าจ้าง <span class="text-rose-500">*</span></label>
+                            <input type="text" id="form-owner" required placeholder="เช่น กรมโยธาธิการ..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">งบประมาณโครงการรวม (บาท) <span class="text-rose-500">*</span></label>
+                            <input type="number" step="0.01" min="0" id="form-budget" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">บริษัทที่รับผิดชอบ</label>
+                            <select id="form-contractor" onchange="toggleCustomContractorInput()" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <!-- Loaded dynamically plus custom option -->
+                            </select>
+                            <div id="custom-contractor-container" class="hidden mt-2 flex gap-2">
+                                <input type="text" id="form-custom-contractor" placeholder="ระบุผู้รับผิดชอบใหม่..." class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                <button type="button" onclick="addNewContractorOption()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap">+ เพิ่ม</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">ประเภทงาน</label>
+                            <select id="form-job-type" onchange="toggleCustomJobTypeInput()" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <!-- Loaded dynamically plus custom option -->
+                            </select>
+                            <div id="custom-job-type-container" class="hidden mt-2 flex gap-2">
+                                <input type="text" id="form-custom-job-type" placeholder="ระบุประเภทงานใหม่..." class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                <button type="button" onclick="addNewJobTypeOption()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap">+ เพิ่ม</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">การโอนสิทธิ์โครงการ <span class="text-rose-500">*</span></label>
+                            <select id="form-right-assignment" onchange="toggleRightAssignmentPercentageInput()" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <option value="ไม่ได้โอนสิทธิ์">ไม่ได้โอนสิทธิ์</option>
+                                <option value="โอนสิทธิ์">โอนสิทธิ์</option>
+                            </select>
+                        </div>
+                        <div id="right-assignment-percentage-container" class="hidden">
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เปอร์เซ็นต์โอน (%) <span class="text-rose-500">*</span></label>
+                            <input type="number" min="0" max="100" id="form-right-assignment-percentage" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: ระยะเวลาสัญญา -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">2. ระยะเวลาดำเนินงานหลัก</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่เริ่มต้นสัญญา <span class="text-rose-500">*</span></label>
+                            <input type="date" id="form-start-date" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่สิ้นสุดสัญญา <span class="text-rose-500">*</span></label>
+                            <input type="date" id="form-end-date" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่สั่งเข้างานจริง</label>
+                            <input type="date" id="form-work-order-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: การคู่สัญญากลาง -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">3. คู่ค้า / การส่งมอบแบบแสดงตัวตน</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">สถานะใบเสร็จคู่สัญญา</label>
+                            <select id="form-counterpart-status" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <option value="ยังไม่ได้รับ">ยังไม่ได้รับ</option>
+                                <option value="ได้รับแล้ว">ได้รับแล้ว</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่รับเอกสารคู่สัญญา</label>
+                            <input type="date" id="form-counterpart-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: เงินค้ำประกันสัญญา -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">4. เงินค้ำประกันและธนาคารค้ำหลัก</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">จำนวนเงินค้ำประกันสัญญารวม (บาท)</label>
+                            <input type="number" step="0.01" min="0" id="form-guarantee-amount" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">รูปแบบการชำระค้ำประกัน</label>
+                            <select id="form-guarantee-payment-type" onchange="toggleBankGuaranteeFields()" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <option value="หนังสือค้ำประกันธนาคาร (LG)">หนังสือค้ำประกันธนาคาร (LG)</option>
+                                <option value="เงินสด / เงินโอน">เงินสด / เงินโอน</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Bank Guarantee fields wrapper -->
+                        <div id="bank-guarantee-fields-container" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">ธนาคารผู้ออกหนังสือค้ำประกัน</label>
+                                <select id="form-guarantee-bank" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                    <option value="">-- เลือกธนาคาร --</option>
+                                    <option value="ธนาคารไทยพาณิชย์ (SCB)">ธนาคารไทยพาณิชย์ (SCB)</option>
+                                    <option value="ธนาคารกสิกรไทย (KBANK)">ธนาคารกสิกรไทย (KBANK)</option>
+                                    <option value="ธนาคารกรุงเทพ (BBL)">ธนาคารกรุงเทพ (BBL)</option>
+                                    <option value="ธนาคารกรุงไทย (KTB)">ธนาคารกรุงไทย (KTB)</option>
+                                    <option value="ธนาคารกรุงศรีอยุธยา (BAY)">ธนาคารกรุงศรีอยุธยา (BAY)</option>
+                                    <option value="ธนาคารออมสิน (GSB)">ธนาคารออมสิน (GSB)</option>
+                                    <option value="ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (BAAC)">ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (BAAC)</option>
+                                    <option value="ธนาคารเพื่อการส่งออกและนำเข้าแห่งประเทศไทย (EXIM)">ธนาคารเพื่อการส่งออกและนำเข้าแห่งประเทศไทย (EXIM)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">วันหมดอายุหนังสือค้ำประกัน</label>
+                                <input type="date" id="form-guarantee-expiry-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">สถานะใบเสร็จหลักประกัน</label>
+                            <select id="form-guarantee-receipt-status" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <option value="ยังไม่ได้รับ">ยังไม่ได้รับ</option>
+                                <option value="ได้รับแล้ว">ได้รับแล้ว</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ออกเอกสารหลักประกัน</label>
+                            <input type="date" id="form-guarantee-receipt-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5: อัปโหลดแนบเอกสาร (เฉพาะการเพิ่มรายการใหม่) -->
+                <div id="upload-section" class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">5. อัปโหลดเอกสารแนบสัญญาครั้งแรก</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">แนบไฟล์โครงการสัญญา (TOR / สัญญาลงนาม)</label>
+                            <input type="file" id="form-file" class="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl p-1 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">แนบไฟล์หลักฐานค้ำประกัน (Receipt/LG File) <span class="text-[10px] text-slate-400">(สูงสุด 10MB)</span></label>
+                            <input type="file" id="form-guarantee-receipt-file" class="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl p-1 bg-slate-50">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer buttons -->
+                <div class="pt-4 border-t border-slate-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closeProjectModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition duration-150">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition duration-150">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: PROJECT DETAILS & DELIVERABLES -->
+    <div id="detail-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-fade-in">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="font-bold text-lg text-slate-900 flex items-center">
+                        <span id="detail-project-name">รายละเอียดโครงการหลัก</span>
+                        <span id="detail-project-status" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-bold">สถานะ</span>
+                    </h3>
+                    <p id="detail-project-owner" class="text-xs text-slate-500 mt-0.5">เจ้าของโครงการ: -</p>
+                </div>
+                <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Content - Split layout -->
+            <div class="flex-grow p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-5 gap-8">
+                
+                <!-- Left Side: Contract details & Files (2 Columns) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Project/Contract Details Summary -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-3 text-xs">
+                        <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">สรุปข้อมูลสัญญา</h4>
+                        <div class="grid grid-cols-2 gap-y-2">
+                            <span class="text-slate-400 font-medium">เลขที่สัญญา:</span>
+                            <span id="detail-contract-number" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">ผู้รับผิดชอบ:</span>
+                            <span id="detail-contractor" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">ประเภทงาน:</span>
+                            <span id="detail-job-type" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">งบประมาณรวม:</span>
+                            <span id="detail-budget" class="font-semibold text-slate-900 text-right">฿0.00</span>
+                            <span class="text-slate-400 font-medium">วันเริ่มต้นสัญญา:</span>
+                            <span id="detail-start-date" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">วันสิ้นสุดสัญญา:</span>
+                            <span id="detail-end-date" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">วันสั่งเข้างาน:</span>
+                            <span id="detail-work-order-date" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">สถานะเอกสารคู่ค้า:</span>
+                            <span id="detail-counterpart-status" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">การโอนสิทธิ์:</span>
+                            <span id="detail-right-assignment" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">เงินค้ำประกันสัญญารวม:</span>
+                            <span id="detail-guarantee-amount" class="text-slate-800 text-right">฿0.00</span>
+                            <span class="text-slate-400 font-medium">รูปแบบค้ำประกัน:</span>
+                            <span id="detail-guarantee-payment-type" class="text-slate-800 text-right">-</span>
+                            <span id="detail-guarantee-bank-label" class="text-slate-400 font-medium hidden">ธนาคารค้ำประกัน (LG):</span>
+                            <span id="detail-guarantee-bank" class="text-slate-800 text-right hidden">-</span>
+                            <span id="detail-guarantee-expiry-label" class="text-slate-400 font-medium hidden">วันหมดอายุหนังสือค้ำ:</span>
+                            <span id="detail-guarantee-expiry-date" class="text-slate-800 text-right hidden">-</span>
+                            <span class="text-slate-400 font-medium">สถานะใบเสร็จค้ำ:</span>
+                            <span id="detail-guarantee-receipt-status" class="text-slate-800 text-right">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Guarantee Receipt file box (V2) -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-3 text-xs">
+                        <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">เอกสารหลักฐานใบเสร็จค้ำประกัน</h4>
+                        <div id="detail-guarantee-receipt-file-container" class="flex items-center justify-between bg-white border border-slate-200 p-2.5 rounded-xl">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <div id="detail-guarantee-receipt-upload-container" class="hidden flex gap-2 mt-2">
+                            <input type="file" id="detail-guarantee-receipt-input" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-indigo-50 file:text-indigo-700 flex-1">
+                            <button onclick="uploadGuaranteeReceipt()" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] px-2.5 py-1 font-semibold whitespace-nowrap">อัปโหลด</button>
+                        </div>
+                    </div>
+
+                    <!-- Additional documents file box -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-3 text-xs">
+                        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                            <h4 class="font-bold text-sm text-slate-900 flex items-center">
+                                <svg class="h-4 w-4 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                เอกสารแนบโครงการ
+                            </h4>
+                            <span id="detail-doc-count" class="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-bold">0 ไฟล์</span>
+                        </div>
+
+                        <!-- Upload Additional Doc Form -->
+                        <div class="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100 flex items-center justify-between gap-3">
+                            <input type="file" id="detail-doc-upload-input" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 flex-1">
+                            <button onclick="uploadDetailDocument()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
+                                อัปโหลด
+                            </button>
+                        </div>
+
+                        <!-- Documents List -->
+                        <div id="detail-documents-list" class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                            <!-- Template Rendered dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side: Deliverables / Milestones (3 Columns) -->
+                <div class="lg:col-span-3 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <h4 class="font-bold text-sm text-slate-900 flex items-center">
+                            <svg class="h-4 w-4 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
+                            รายการส่งมอบและงวดงานวัสดุ
+                        </h4>
+                        <span id="detail-deliv-count" class="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-bold">0 รายการ</span>
+                    </div>
+
+                    <!-- Add Deliverable Quick Form -->
+                    <form onsubmit="addDeliverable(event)" class="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-3">
+                        <p class="text-xs font-semibold text-slate-700">เพิ่มรายการส่งมอบ/งวดงานใหม่:</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <input type="text" id="add-deliv-name" required placeholder="ชื่อรายการส่งมอบ / งวดงาน..." class="md:col-span-2 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <input type="date" id="add-deliv-due" required class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        
+                        <!-- Dynamic Invoice Number inputs (V3) -->
+                        <div id="add-deliv-invoice-container" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <!-- Populated dynamically -->
+                        </div>
+                        
+                        <div class="flex justify-end">
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium py-1.5 px-4 transition duration-150 flex items-center justify-center">
+                                + เพิ่มรายการ
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Deliverables Table -->
+                    <div class="border border-slate-150 rounded-xl overflow-hidden bg-white shadow-sm">
+                        <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px]">
+                                <tr id="detail-deliverables-header-row">
+                                    <th scope="col" class="px-4 py-3">รายการส่งมอบ / วัสดุ</th>
+                                    <th scope="col" class="px-4 py-3">วันที่ต้องส่งมอบ</th>
+                                    <th scope="col" class="px-4 py-3">สถานะ</th>
+                                    <th scope="col" class="px-4 py-3 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-deliverables-body" class="divide-y divide-slate-100">
+                                <!-- Template Rendered dynamically -->
+                            </tbody>
+                        </table>
+                        <div id="no-deliverables-message" class="hidden text-center py-6 text-slate-400 text-xs">
+                            ยังไม่มีรายการส่งมอบสำหรับโครงการนี้
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- V5 Audit Trail section for Project -->
+            <div class="px-6 py-2 bg-slate-50 border-t border-slate-150 text-[10px] text-slate-500 grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div class="flex items-center">
+                    <span class="font-semibold text-slate-600 mr-1">สร้างโดย:</span>
+                    <span id="detail-project-created-by">-</span>
+                    <span class="mx-2 text-slate-300">|</span>
+                    <span class="font-semibold text-slate-600 mr-1">เมื่อ:</span>
+                    <span id="detail-project-created-at">-</span>
+                </div>
+                <div class="flex items-center md:justify-end">
+                    <span class="font-semibold text-slate-600 mr-1">แก้ไขล่าสุดโดย:</span>
+                    <span id="detail-project-updated-by">-</span>
+                    <span class="mx-2 text-slate-300">|</span>
+                    <span class="font-semibold text-slate-600 mr-1">เมื่อ:</span>
+                    <span id="detail-project-updated-at">-</span>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-150 flex justify-end flex-shrink-0">
+                <button onclick="closeDetailModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium transition duration-150 shadow-sm">
+                    เสร็จสิ้น
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ADD/EDIT PURCHASE ORDER (PO) FORM (V4) -->
+    <div id="po-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-2xl w-full overflow-hidden animate-fade-in">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+                <h3 id="po-modal-title" class="font-bold text-lg text-slate-900">เพิ่มใบสั่งซื้อใหม่ (PO)</h3>
+                <button onclick="closePOModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <!-- Modal Form Body -->
+            <form id="po-form" onsubmit="savePO(event)" class="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
+                <input type="hidden" id="form-po-id">
+                
+                <!-- Section 1: ข้อมูล PO -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">1. ข้อมูลทั่วไปใบสั่งซื้อ</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เชื่อมโยงโครงการสัญญา <span class="text-rose-500">*</span></label>
+                            <select id="form-po-project-id" onchange="autoFillPOOwner()" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <!-- Loaded dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เลขที่ใบสั่งซื้อ (PO) <span class="text-rose-500">*</span></label>
+                            <input type="text" id="form-po-number" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">งบประมาณในใบสั่งซื้อ (บาท) <span class="text-rose-500">*</span></label>
+                            <input type="number" step="0.01" min="0" id="form-po-budget" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 2: กำหนดเวลาและผู้รับผิดชอบ -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">2. กำหนดเวลาและผู้เกี่ยวข้อง</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ออกใบสั่งซื้อ <span class="text-rose-500">*</span></label>
+                            <input type="date" id="form-po-date" onchange="calculatePODueDate()" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">ระยะเวลากำหนดส่ง (วัน) <span class="text-rose-500">*</span></label>
+                                <input type="number" min="1" id="form-po-duration" oninput="calculatePODueDate()" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">วันครบกำหนดส่งมอบ</label>
+                                <input type="date" id="form-po-due-date" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เจ้าของโครงการ / หน่วยงาน <span class="text-rose-500">*</span></label>
+                            <input type="text" id="form-po-owner" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">บริษัทที่รับผิดชอบ</label>
+                            <select id="form-po-contractor" onchange="toggleCustomPOContractorInput()" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <!-- Default options loaded dynamically plus custom option -->
+                            </select>
+                            <div id="custom-po-contractor-container" class="hidden mt-2 flex gap-2">
+                                <input type="text" id="form-po-custom-contractor" placeholder="ระบุผู้รับผิดชอบใหม่..." class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                <button type="button" onclick="addNewPOContractorOption()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap">+ เพิ่ม</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">ประเภทวัสดุในใบส่งของ</label>
+                            <select id="form-po-material-type" onchange="toggleCustomPOMaterialInput()" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <!-- Default options loaded dynamically plus custom option -->
+                            </select>
+                            <div id="custom-po-material-container" class="hidden mt-2 flex gap-2">
+                                <input type="text" id="form-po-custom-material" placeholder="ระบุประเภทวัสดุใหม่..." class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                <button type="button" onclick="addNewPOMaterialOption()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-xl text-xs whitespace-nowrap">+ เพิ่ม</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: ไฟล์เอกสารแนบ PO -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">3. ไฟล์แนบหลักฐาน (เลือกแนบเพิ่มเติมได้หลังจากบันทึก)</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">แนบไฟล์ใบสั่งซื้อ PO (สูงสุด 10MB, PDF/PNG/JPG)</label>
+                            <input type="file" id="form-po-file" class="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl p-1 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">แนบไฟล์ใบเสนอราคา (Quotation) (สูงสุด 10MB, PDF/PNG/JPG)</label>
+                            <input type="file" id="form-po-quotation-file" class="mt-1 block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl p-1 bg-slate-50">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer buttons -->
+                <div class="pt-4 border-t border-slate-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closePOModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition duration-150">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition duration-150">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: PURCHASE ORDER DETAILS & DELIVERY TRACKING (V4) -->
+    <div id="po-detail-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-fade-in">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="font-bold text-lg text-slate-900 flex items-center">
+                        <span>รายละเอียดใบสั่งซื้อ: </span>
+                        <span id="detail-po-number" class="ml-2 font-mono text-indigo-600">PO-XXXX</span>
+                        <span id="detail-po-delivery-status-badge" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-bold">สถานะ</span>
+                    </h3>
+                    <p id="detail-po-project-name" class="text-xs text-slate-500 mt-0.5">โครงการเชื่อมโยง: -</p>
+                </div>
+                <button onclick="closePODetailModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Content - Split layout -->
+            <div class="flex-grow p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-5 gap-8">
+                
+                <!-- Left Side: PO details & Files (2 Columns) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- PO Details Summary -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-3 text-xs">
+                        <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">รายละเอียดใบสั่งซื้อ</h4>
+                        <div class="grid grid-cols-2 gap-y-2">
+                            <span class="text-slate-400 font-medium">งบประมาณ PO:</span>
+                            <span id="detail-po-budget" class="font-bold text-indigo-600 text-right">-</span>
+                            <span class="text-slate-400 font-medium">วันที่ออก PO:</span>
+                            <span id="detail-po-date" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">ระยะเวลากำหนดส่ง:</span>
+                            <span id="detail-po-duration" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">กำหนดส่งมอบ:</span>
+                            <span id="detail-po-due-date" class="font-semibold text-slate-900 text-right">-</span>
+                            <span class="text-slate-400 font-medium">เจ้าของโครงการ/หน่วยงาน:</span>
+                            <span id="detail-po-owner" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">ผู้รับผิดชอบ (บริษัท):</span>
+                            <span id="detail-po-contractor" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">ประเภทวัสดุ:</span>
+                            <span id="detail-po-material-type" class="text-slate-800 text-right">-</span>
+                        </div>
+                    </div>
+
+                    <!-- PO Attachments Section -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-4 text-xs">
+                        <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">หลักฐานเอกสารแนบ PO</h4>
+                        
+                        <!-- 1. PO file attachment container -->
+                        <div class="space-y-1.5">
+                            <span class="text-slate-400 font-medium block">1. ไฟล์ใบสั่งซื้อ (PO File):</span>
+                            <div id="detail-po-file-container" class="flex items-center justify-between bg-white border border-slate-200 p-2 rounded-lg">
+                                <!-- Rendered dynamically -->
+                            </div>
+                            <div id="detail-po-file-upload-container" class="hidden flex gap-2">
+                                <input type="file" id="detail-po-file-input" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-indigo-50 file:text-indigo-700 flex-1">
+                                <button type="button" onclick="uploadPOFile('po-file')" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] px-2.5 py-1 font-semibold whitespace-nowrap">อัปโหลด</button>
+                            </div>
+                        </div>
+
+                        <!-- 2. Quotation file attachment container -->
+                        <div class="space-y-1.5 border-t border-slate-200 pt-3">
+                            <span class="text-slate-400 font-medium block">2. ไฟล์ใบเสนอราคา (Quotation File):</span>
+                            <div id="detail-po-quotation-file-container" class="flex items-center justify-between bg-white border border-slate-200 p-2 rounded-lg">
+                                <!-- Rendered dynamically -->
+                            </div>
+                            <div id="detail-po-quotation-file-upload-container" class="hidden flex gap-2">
+                                <input type="file" id="detail-po-quotation-input" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-indigo-50 file:text-indigo-700 flex-1">
+                                <button type="button" onclick="uploadPOFile('quotation-file')" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] px-2.5 py-1 font-semibold whitespace-nowrap">อัปโหลด</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side: Delivery note tracking (3 Columns) -->
+                <div class="lg:col-span-3 space-y-6">
+                    <div class="border-b border-slate-100 pb-2">
+                        <h4 class="font-bold text-sm text-slate-900 flex items-center">
+                            <svg class="h-4 w-4 text-emerald-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            การติดตามใบส่งของและบันทึกการส่งมอบ (Delivery Tracking)
+                        </h4>
+                    </div>
+
+                    <!-- Update Delivery Info Form -->
+                    <form onsubmit="savePODelivery(event)" class="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-4 text-xs">
+                        <p class="text-xs font-semibold text-slate-700">อัปเดตสถานะการส่งมอบใบสั่งซื้อ:</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-700 uppercase">เลขที่ใบส่งของ</label>
+                                <input type="text" id="detail-po-delivery-no" placeholder="เช่น DN-2026-001..." class="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-700 uppercase">วันที่ส่งมอบของจริง</label>
+                                <input type="date" id="detail-po-delivery-date" class="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-700 uppercase">สถานะการส่งมอบ</label>
+                                <select id="detail-po-delivery-status" class="mt-1 w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white">
+                                    <option value="ยังไม่ได้ส่ง">ยังไม่ได้ส่ง</option>
+                                    <option value="ส่งมอบแล้ว">ส่งมอบแล้ว</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Note File upload -->
+                        <div class="border-t border-slate-200 pt-3">
+                            <span class="text-slate-400 font-medium block mb-1.5">แนบเอกสารไฟล์ใบส่งมอบของ (Delivery Note File):</span>
+                            <div id="detail-po-delivery-file-container" class="flex items-center justify-between bg-white border border-slate-200 p-2 rounded-lg mb-2">
+                                <!-- Rendered dynamically -->
+                            </div>
+                            <div id="detail-po-delivery-file-upload-container" class="hidden flex gap-2">
+                                <input type="file" id="detail-po-delivery-file-input" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-indigo-50 file:text-indigo-700 flex-1">
+                            </div>
+                        </div>
+
+                        <!-- Submit action -->
+                        <div class="flex justify-end pt-2 border-t border-slate-200">
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold py-2 px-4 transition duration-150 shadow-sm">
+                                บันทึกการส่งมอบ
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+
+            <!-- V5 Audit Trail section for PO -->
+            <div class="px-6 py-2 bg-slate-50 border-t border-slate-150 text-[10px] text-slate-500 grid grid-cols-1 md:grid-cols-2 gap-2 flex-shrink-0">
+                <div class="flex items-center">
+                    <span class="font-semibold text-slate-600 mr-1">สร้างโดย:</span>
+                    <span id="detail-po-created-by">-</span>
+                    <span class="mx-2 text-slate-300">|</span>
+                    <span class="font-semibold text-slate-600 mr-1">เมื่อ:</span>
+                    <span id="detail-po-created-at">-</span>
+                </div>
+                <div class="flex items-center md:justify-end">
+                    <span class="font-semibold text-slate-600 mr-1">แก้ไขล่าสุดโดย:</span>
+                    <span id="detail-po-updated-by">-</span>
+                    <span class="mx-2 text-slate-300">|</span>
+                    <span class="font-semibold text-slate-600 mr-1">เมื่อ:</span>
+                    <span id="detail-po-updated-at">-</span>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-150 flex justify-end flex-shrink-0">
+                <button onclick="closePODetailModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium transition duration-150 shadow-sm">
+                    เสร็จสิ้น
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Core Logic App -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
