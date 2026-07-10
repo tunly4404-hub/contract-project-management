@@ -125,3 +125,17 @@ class PurchaseOrder(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     project = relationship("Project", back_populates="purchase_orders")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True)
+    username = Column(String, nullable=False, index=True)
+    fullname = Column(String, nullable=True)
+    action = Column(String, nullable=False) # e.g. "สร้าง", "แก้ไข", "ลบ"
+    target_type = Column(String, nullable=False) # e.g. "โครงการ", "ใบสั่งซื้อ PO", "ใบส่งมอบของ"
+    target_name = Column(String, nullable=True) # e.g. "โครงการหลัก", "PO-1029"
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    details = Column(String, nullable=True)

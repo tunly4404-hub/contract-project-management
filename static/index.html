@@ -126,6 +126,9 @@
                             <button id="tab-users" onclick="switchTab('users')" class="hidden border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                                 จัดการผู้ใช้งาน
                             </button>
+                            <button id="tab-audit-logs" onclick="switchTab('audit-logs')" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                ประวัติการใช้งาน
+                            </button>
                         </div>
                     </div>
                     <!-- V5 Top-Right Profile & Logout -->
@@ -441,6 +444,35 @@
                                 </tr>
                             </thead>
                             <tbody id="users-table-body" class="divide-y divide-slate-100 bg-white">
+                                <!-- Rows rendered dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. AUDIT LOGS VIEW (V5 Audit Trail) -->
+            <section id="view-audit-logs" class="hidden space-y-6 animate-fade-in">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">ประวัติการใช้งานระบบ (Activity Logs)</h1>
+                    <p class="text-sm text-slate-500 mt-1" id="audit-logs-subtitle">ประวัติกิจกรรมการเพิ่ม แก้ไข และลบข้อมูลเอกสารโครงการในระบบ</p>
+                </div>
+
+                <!-- Audit Logs Table -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs border-b border-slate-200">
+                                <tr>
+                                    <th scope="col" class="px-6 py-4">วัน-เวลา (Date-Time)</th>
+                                    <th scope="col" class="px-6 py-4">ผู้ทำรายการ (User)</th>
+                                    <th scope="col" class="px-6 py-4">ประเภทการกระทำ (Action)</th>
+                                    <th scope="col" class="px-6 py-4">ประเภทข้อมูล (Item Type)</th>
+                                    <th scope="col" class="px-6 py-4">ชื่อรายการ (Item Name)</th>
+                                    <th scope="col" class="px-6 py-4">รายละเอียด (Details)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-logs-table-body" class="divide-y divide-slate-100 bg-white">
                                 <!-- Rows rendered dynamically -->
                             </tbody>
                         </table>

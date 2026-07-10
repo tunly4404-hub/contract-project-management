@@ -222,6 +222,20 @@ def reset_user_password(user_id: int, payload: schemas.UserResetPassword, curren
     db.commit()
     return {"detail": f"เปลี่ยนรหัสผ่านสำหรับผู้ใช้งาน {db_user.username} เรียบร้อยแล้ว"}
 
+@app.get("/api/audit-logs", response_model=List[schemas.AuditLogResponse])
+def get_audit_logs(
+    username: str = Depends(get_current_user_username),
+    db: Session = Depends(get_db)
+):
+    user = crud.get_user_by_username(db, username=username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if user.role == "admin":
+        return db.query(models.AuditLog).order_by(models.AuditLog.timestamp.desc()).all()
+    else:
+        return db.query(models.AuditLog).filter(models.AuditLog.username == username).order_by(models.AuditLog.timestamp.desc()).all()
+
 
 # Dashboard Endpoints (Secured)
 @app.get("/api/dashboard/stats", response_model=schemas.DashboardStats)
@@ -251,17 +265,27 @@ def read_project(project_id: int, username: str = Depends(get_current_user_usern
 
 @app.post("/api/projects", response_model=schemas.Project)
 def create_project(project: schemas.ProjectCreate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
-    return crud.create_project(db=db, project=project, username=username)
+    db_project = crud.create_project(db=db, project=project, username=username)
+    crud.log_user_action(db, username, "สร้าง", "โครงการ", db_project.name, f"งบประมาณ: {db_project.budget} บาท")
+    return db_project
 
 @app.put("/api/projects/{project_id}", response_model=schemas.Project)
 def update_project(project_id: int, project: schemas.ProjectUpdate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+    db_project_old = crud.get_project(db, project_id)
+    if not db_project_old:
+        raise HTTPException(status_code=404, detail="Project not found")
     db_project = crud.update_project(db=db, project_id=project_id, project=project, username=username)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    crud.log_user_action(db, username, "แก้ไข", "โครงการ", db_project.name, "แก้ไขข้อมูลโครงการ")
     return db_project
 
 @app.delete("/api/projects/{project_id}")
 def delete_project(project_id: int, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
+    db_project = crud.get_project(db, project_id=project_id)
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    crud.log_user_action(db, current_admin.username, "ลบ", "โครงการ", db_project.name, f"ลบโครงการ ID: {project_id}")
     success = crud.delete_project(db=db, project_id=project_id)
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -274,17 +298,25 @@ def create_project_deliverable(project_id: int, deliverable: schemas.Deliverable
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return crud.create_deliverable(db=db, deliverable=deliverable, project_id=project_id, username=username)
+    db_deliverable = crud.create_deliverable(db=db, deliverable=deliverable, project_id=project_id, username=username)
+    crud.log_user_action(db, username, "สร้าง", "งวดงานสัญญาหลัก", db_deliverable.name, f"สร้างงวดงานในโครงการ '{db_project.name}'")
+    return db_deliverable
 
 @app.put("/api/deliverables/{deliverable_id}", response_model=schemas.Deliverable)
 def update_deliverable(deliverable_id: int, deliverable: schemas.DeliverableUpdate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
-    db_deliverable = crud.update_deliverable(db=db, deliverable_id=deliverable_id, deliverable=deliverable, username=username)
-    if not db_deliverable:
+    db_del = db.query(models.Deliverable).filter(models.Deliverable.id == deliverable_id).first()
+    if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
+    db_deliverable = crud.update_deliverable(db=db, deliverable_id=deliverable_id, deliverable=deliverable, username=username)
+    crud.log_user_action(db, username, "แก้ไข", "งวดงานสัญญาหลัก", db_deliverable.name, f"แก้ไขรายละเอียดงวดงาน (สถานะ: {db_deliverable.status})")
     return db_deliverable
 
 @app.delete("/api/deliverables/{deliverable_id}")
 def delete_deliverable(deliverable_id: int, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
+    db_del = db.query(models.Deliverable).filter(models.Deliverable.id == deliverable_id).first()
+    if not db_del:
+        raise HTTPException(status_code=404, detail="Deliverable not found")
+    crud.log_user_action(db, current_admin.username, "ลบ", "งวดงานสัญญาหลัก", db_del.name, f"ลบงวดงาน ID: {deliverable_id}")
     success = crud.delete_deliverable(db=db, deliverable_id=deliverable_id)
     if not success:
         raise HTTPException(status_code=404, detail="Deliverable not found")
@@ -308,13 +340,25 @@ def create_purchase_order(project_id: int, po: schemas.PurchaseOrderCreate, user
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return crud.create_purchase_order(db=db, po=po, project_id=project_id, username=username)
+    db_po = crud.create_purchase_order(db=db, po=po, project_id=project_id, username=username)
+    crud.log_user_action(db, username, "สร้าง", "ใบสั่งซื้อ PO", db_po.po_number, f"สร้างใบสั่งซื้อ PO งบประมาณ: {db_po.budget} บาท ในโครงการ '{db_project.name}'")
+    return db_po
 
 @app.put("/api/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
 def update_purchase_order(po_id: int, po: schemas.PurchaseOrderUpdate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+    db_po_old = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == po_id).first()
+    if not db_po_old:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    old_delivery_status = db_po_old.delivery_status
+    
     db_po = crud.update_purchase_order(db=db, po_id=po_id, po=po, username=username)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+        
+    if old_delivery_status != db_po.delivery_status:
+        crud.log_user_action(db, username, "แก้ไข", "ใบส่งมอบของ", f"PO: {db_po.po_number}", f"ปรับปรุงการส่งมอบเป็น '{db_po.delivery_status}' (เลขที่ใบส่งของ: {db_po.delivery_no or '-'})")
+    else:
+        crud.log_user_action(db, username, "แก้ไข", "ใบสั่งซื้อ PO", db_po.po_number, "แก้ไขรายละเอียดใบสั่งซื้อ")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}")
@@ -335,6 +379,7 @@ def delete_purchase_order(po_id: int, current_admin = Depends(check_admin_role),
                     except Exception:
                         pass
                         
+    crud.log_user_action(db, current_admin.username, "ลบ", "ใบสั่งซื้อ PO", db_po.po_number, f"ลบใบสั่งซื้อ ID: {po_id}")
     success = crud.delete_purchase_order(db=db, po_id=po_id)
     if not success:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -366,6 +411,7 @@ def upload_po_file(po_id: int, file: UploadFile = File(...), username: str = Dep
     db_po.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_po)
+    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบสั่งซื้อ PO", file.filename, f"อัปโหลดไฟล์ใบสั่งซื้อสำหรับ PO: {db_po.po_number}")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/po-file", response_model=schemas.PurchaseOrder)
@@ -382,12 +428,14 @@ def delete_po_file(po_id: int, username: str = Depends(get_current_user_username
                 os.remove(file_path)
             except Exception:
                 pass
+        orig_filename = db_po.po_file_filename
         db_po.po_file_path = None
         db_po.po_file_filename = None
         db_po.updated_by = username
         db_po.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(db_po)
+        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบสั่งซื้อ PO", orig_filename, f"ลบไฟล์ใบสั่งซื้อสำหรับ PO: {db_po.po_number}")
     return db_po
 
 @app.post("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
@@ -414,6 +462,7 @@ def upload_quotation_file(po_id: int, file: UploadFile = File(...), username: st
     db_po.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_po)
+    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบเสนอราคา PO", file.filename, f"อัปโหลดไฟล์ใบเสนอราคาสำหรับ PO: {db_po.po_number}")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
@@ -430,12 +479,14 @@ def delete_quotation_file(po_id: int, username: str = Depends(get_current_user_u
                 os.remove(file_path)
             except Exception:
                 pass
+        orig_filename = db_po.quotation_file_filename
         db_po.quotation_file_path = None
         db_po.quotation_file_filename = None
         db_po.updated_by = username
         db_po.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(db_po)
+        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบเสนอราคา PO", orig_filename, f"ลบไฟล์ใบเสนอราคาสำหรับ PO: {db_po.po_number}")
     return db_po
 
 
@@ -464,6 +515,7 @@ def upload_delivery_file(po_id: int, file: UploadFile = File(...), username: str
     db_po.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_po)
+    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบส่งของ PO", file.filename, f"อัปโหลดไฟล์ใบส่งของสำหรับ PO: {db_po.po_number}")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/delivery-file", response_model=schemas.PurchaseOrder)
@@ -480,12 +532,14 @@ def delete_delivery_file(po_id: int, username: str = Depends(get_current_user_us
                 os.remove(file_path)
             except Exception:
                 pass
+        orig_filename = db_po.delivery_file_filename
         db_po.delivery_file_path = None
         db_po.delivery_file_filename = None
         db_po.updated_by = username
         db_po.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(db_po)
+        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบส่งของ PO", orig_filename, f"ลบไฟล์ใบส่งของสำหรับ PO: {db_po.po_number}")
     return db_po
 
 
@@ -525,7 +579,9 @@ def upload_document(
     db_project.updated_at = datetime.utcnow()
     db.commit()
     
-    return crud.create_document(db=db, document=doc_schema, project_id=project_id)
+    db_doc = crud.create_document(db=db, document=doc_schema, project_id=project_id)
+    crud.log_user_action(db, username, "สร้าง", "เอกสารสัญญา", file.filename, f"อัปโหลดไฟล์เอกสารสัญญาในโครงการ '{db_project.name}'")
+    return db_doc
 
 @app.delete("/api/documents/{document_id}")
 def delete_document(document_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
@@ -548,9 +604,11 @@ def delete_document(document_id: int, username: str = Depends(get_current_user_u
         db_project.updated_at = datetime.utcnow()
         db.commit()
             
+    orig_filename = db_doc.filename
     success = crud.delete_document(db=db, document_id=document_id)
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
+    crud.log_user_action(db, username, "ลบ", "เอกสารสัญญา", orig_filename, f"ลบไฟล์เอกสารสัญญาออกจากระบบ")
     return {"detail": "Document deleted successfully"}
 
 
@@ -584,6 +642,7 @@ def upload_guarantee_receipt(
     db_project.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(db_project)
+    crud.log_user_action(db, username, "สร้าง", "ใบเสร็จค้ำประกัน", file.filename, f"อัปโหลดใบเสร็จค้ำประกันโครงการ '{db_project.name}'")
     return db_project
 
 @app.delete("/api/projects/{project_id}/guarantee-receipt", response_model=schemas.Project)
@@ -600,13 +659,14 @@ def delete_guarantee_receipt(project_id: int, username: str = Depends(get_curren
                 os.remove(file_path)
             except Exception:
                 pass
-                
+        orig_filename = db_project.guarantee_receipt_filename
         db_project.guarantee_receipt_path = None
         db_project.guarantee_receipt_filename = None
         db_project.updated_by = username
         db_project.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(db_project)
+        crud.log_user_action(db, username, "ลบ", "ใบเสร็จค้ำประกัน", orig_filename, f"ลบใบเสร็จค้ำประกันโครงการ '{db_project.name}'")
     return db_project
 
 

@@ -244,3 +244,18 @@ class DashboardPOAlert(BaseModel):
     due_date: date
     days_remaining: int
     delivery_status: str
+
+
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    username: str
+    fullname: Optional[str] = None
+    action: str
+    target_type: str
+    target_name: Optional[str] = None
+    timestamp: datetime
+    details: Optional[str] = None
+
+    class Config:
+        from_attributes = True

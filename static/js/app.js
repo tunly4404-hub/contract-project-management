@@ -579,22 +579,26 @@ function switchTab(tabName) {
     const viewProjects = document.getElementById("view-projects");
     const viewPurchaseOrders = document.getElementById("view-purchase-orders");
     const viewUsers = document.getElementById("view-users");
+    const viewAuditLogs = document.getElementById("view-audit-logs");
     
     const tabDashboardBtn = document.getElementById("tab-dashboard");
     const tabProjectsBtn = document.getElementById("tab-projects");
     const tabPOBtn = document.getElementById("tab-purchase-orders");
     const tabUsersBtn = document.getElementById("tab-users");
+    const tabAuditLogsBtn = document.getElementById("tab-audit-logs");
 
     // Hide all views
     viewDashboard.classList.add("hidden");
     viewProjects.classList.add("hidden");
     viewPurchaseOrders.classList.add("hidden");
     viewUsers.classList.add("hidden");
+    viewAuditLogs.classList.add("hidden");
     
     tabDashboardBtn.className = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium";
     tabProjectsBtn.className = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium";
     tabPOBtn.className = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium";
     tabUsersBtn.className = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium";
+    tabAuditLogsBtn.className = "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium";
 
     if (tabName === "dashboard") {
         viewDashboard.classList.remove("hidden");
@@ -618,6 +622,11 @@ function switchTab(tabName) {
         tabUsersBtn.className = "border-transparent text-indigo-600 hover:text-indigo-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-semibold tab-active";
         
         fetchUsers();
+    } else if (tabName === "audit-logs") {
+        viewAuditLogs.classList.remove("hidden");
+        tabAuditLogsBtn.className = "border-transparent text-indigo-600 hover:text-indigo-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-semibold tab-active";
+        
+        fetchAuditLogs();
     }
 }
 
@@ -2284,6 +2293,78 @@ async function deleteUser(userId, username) {
         console.error("Error deleting user:", error);
         alert(error.message);
     }
+}
+
+async function fetchAuditLogs() {
+    try {
+        const response = await secureFetch("/api/audit-logs");
+        if (!response.ok) throw new Error("Failed to fetch audit logs");
+        const logs = await response.json();
+        renderAuditLogsTable(logs);
+        
+        // Update subtitle based on user role
+        const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+        const subtitle = document.getElementById("audit-logs-subtitle");
+        if (currentUser.role === "admin") {
+            subtitle.innerText = "สิทธิ์แอดมิน: ตรวจสอบประวัติกิจกรรมทั้งหมดของผู้ใช้ทุกคนในระบบ";
+        } else {
+            subtitle.innerText = "ประวัติกิจกรรมทั้งหมดที่คุณได้ทำรายการไว้ในระบบ (แสดงเฉพาะของคุณเอง)";
+        }
+    } catch (error) {
+        console.error("Error fetching audit logs:", error);
+    }
+}
+
+function renderAuditLogsTable(logs) {
+    const tbody = document.getElementById("audit-logs-table-body");
+    tbody.innerHTML = "";
+    
+    if (logs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-8 text-center text-slate-400">
+                    <svg class="h-8 w-8 mx-auto text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    ยังไม่มีบันทึกประวัติกิจกรรมในระบบ
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    logs.forEach(log => {
+        const row = document.createElement("tr");
+        row.className = "hover:bg-slate-50 transition duration-150 text-xs";
+        
+        // Action badge styling
+        let actionBadge = "";
+        if (log.action === "สร้าง") {
+            actionBadge = `<span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold">สร้าง</span>`;
+        } else if (log.action === "แก้ไข") {
+            actionBadge = `<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded font-bold">แก้ไข</span>`;
+        } else if (log.action === "ลบ") {
+            actionBadge = `<span class="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded font-bold">ลบ</span>`;
+        } else {
+            actionBadge = `<span class="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded font-bold">${log.action}</span>`;
+        }
+        
+        // Item type badge styling
+        let itemBadge = `<span class="bg-indigo-50 text-indigo-750 text-[10px] px-2 py-0.5 rounded font-medium text-indigo-700 bg-indigo-100/50">${log.target_type}</span>`;
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 font-semibold text-slate-500 whitespace-nowrap">${formatTimestamp(log.timestamp)}</td>
+            <td class="px-6 py-4">
+                <div class="font-medium text-slate-900">${log.fullname || "-"}</div>
+                <div class="text-[10px] font-mono text-slate-400">${log.username}</div>
+            </td>
+            <td class="px-6 py-4">${actionBadge}</td>
+            <td class="px-6 py-4">${itemBadge}</td>
+            <td class="px-6 py-4 font-semibold text-slate-800">${log.target_name || "-"}</td>
+            <td class="px-6 py-4 text-slate-650 font-medium text-slate-600">${log.details || "-"}</td>
+        `;
+        tbody.appendChild(row);
+    });
 }
 
 // ----------------------------------------------------

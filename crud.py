@@ -293,3 +293,21 @@ def get_dashboard_po_alerts(db: Session):
             
     alerts.sort(key=lambda x: x["days_remaining"])
     return alerts
+
+def log_user_action(db: Session, username: str, action: str, target_type: str, target_name: str, details: str = None):
+    user = db.query(models.User).filter(models.User.username == username).first()
+    user_id = user.id if user else None
+    fullname = user.fullname if user else None
+    
+    db_log = models.AuditLog(
+        user_id=user_id,
+        username=username,
+        fullname=fullname,
+        action=action,
+        target_type=target_type,
+        target_name=target_name,
+        details=details
+    )
+    db.add(db_log)
+    db.commit()
+    return db_log
