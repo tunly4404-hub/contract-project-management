@@ -12,10 +12,52 @@ import jwt
 import models
 import schemas
 import crud
-from database import engine, get_db
+from database import engine, get_db, SessionLocal
 
 # Create DB tables
 models.Base.metadata.create_all(bind=engine)
+
+# Auto-seed admin user if users table is empty (V5 RBAC Render helper)
+def auto_seed_db():
+    db = SessionLocal()
+    try:
+        admin_user = db.query(models.User).filter(models.User.username == "admin").first()
+        if not admin_user:
+            print("Auto-seeding default admin account on startup...")
+            admin_schema = schemas.UserCreate(
+                username="admin",
+                fullname="ผู้ดูแลระบบหลัก",
+                role="admin",
+                password="admin1234" # As requested by user: admin1234
+            )
+            crud.create_user(db, admin_schema)
+            # Enforce admin role and active status
+            db_admin = db.query(models.User).filter(models.User.username == "admin").first()
+            if db_admin:
+                db_admin.role = "admin"
+                db_admin.is_active = True
+                db.commit()
+                
+        sittipan_user = db.query(models.User).filter(models.User.username == "sittipan").first()
+        if not sittipan_user:
+            sittipan_schema = schemas.UserCreate(
+                username="sittipan",
+                fullname="คุณ สิทธิพรรณ",
+                role="user",
+                password="sittipan123"
+            )
+            crud.create_user(db, sittipan_schema)
+            db_sittipan = db.query(models.User).filter(models.User.username == "sittipan").first()
+            if db_sittipan:
+                db_sittipan.role = "user"
+                db_sittipan.is_active = True
+                db.commit()
+    except Exception as e:
+        print(f"Error during auto-seeding: {e}")
+    finally:
+        db.close()
+
+auto_seed_db()
 
 # Create uploads folder if it doesn't exist (V4 subfolders)
 UPLOAD_DIR = "./uploads"

@@ -33,7 +33,7 @@ def seed():
             username="admin",
             fullname="ผู้ดูแลระบบหลัก",
             role="admin",
-            password="admin123"
+            password="admin1234"
         )
         sittipan_user = schemas.UserCreate(
             username="sittipan",
