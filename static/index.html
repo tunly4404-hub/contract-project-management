@@ -22,6 +22,12 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
 
+    <!-- V5 Loading Overlay for Cloud (Render Free Tier) -->
+    <div id="loading-overlay" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex flex-col items-center justify-center text-white hidden">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mb-4"></div>
+        <p class="text-sm font-semibold tracking-wide text-center px-4" id="loading-text">กำลังปลุกเซิร์ฟเวอร์คลาวด์ กรุณารอประมาณ 1 นาที...</p>
+    </div>
+
     <!-- AUTHENTICATION PANELS OVERLAYS (V5) -->
     <div id="auth-container" class="min-h-screen flex items-center justify-center bg-gradient-to-tr from-indigo-100 via-slate-50 to-blue-50 p-4">
         <!-- Login Card -->
@@ -43,6 +49,9 @@
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase">รหัสผ่าน (Password)</label>
                     <input type="password" id="login-password" required placeholder="ระบุรหัสผ่าน..." class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                </div>
+                <div class="text-right">
+                    <button type="button" onclick="openForgetPasswordModal()" class="text-xs text-slate-500 hover:text-indigo-605 hover:text-indigo-600 font-medium transition duration-150">ลืมรหัสผ่าน / ขอรีเซ็ตรหัสผ่าน?</button>
                 </div>
                 <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100 flex items-center justify-center">
                     เข้าสู่ระบบ
@@ -1105,6 +1114,35 @@
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition duration-150 shadow-sm">บันทึกรหัสผ่านใหม่</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL 6: FORGET PASSWORD INFO (V5 RBAC) -->
+    <div id="forget-password-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden animate-fade-in p-6 space-y-4">
+            <div class="text-center">
+                <div class="inline-flex p-3 bg-amber-50 rounded-2xl text-amber-600 mb-2">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg text-slate-900">แนะนำการรีเซ็ตรหัสผ่าน</h3>
+            </div>
+            <div class="space-y-3 text-xs text-slate-600">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                    <p class="font-bold text-slate-800 mb-1">สำหรับผู้ใช้งานทั่วไป (User):</p>
+                    <p>กรุณาติดต่อผู้ดูแลระบบหลัก (Admin) ของคุณ เพื่อแจ้งให้ทำการอัปเดตรหัสผ่านใหม่ในเมนู <b>"จัดการผู้ใช้งาน"</b></p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                    <p class="font-bold text-slate-800 mb-1">สำหรับผู้ดูแลระบบ (Admin):</p>
+                    <p>หากลืมรหัสผ่านหลักเข้าแอปพลิเคชัน กรุณาติดต่อผู้พัฒนา หรือทำตามคู่มือแนะนำในการสั่งรันสคริปต์รีเซ็ตรหัสผ่านฐานข้อมูล SQLite ในโฮสติ้ง Render</p>
+                </div>
+            </div>
+            <div class="flex justify-end pt-2 border-t border-slate-100">
+                <button onclick="closeForgetPasswordModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition duration-150 shadow-sm">
+                    รับทราบ
+                </button>
+            </div>
         </div>
     </div>
 

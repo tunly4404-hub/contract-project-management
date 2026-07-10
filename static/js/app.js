@@ -51,6 +51,32 @@ async function secureFetch(url, options = {}) {
     }
 }
 
+// Loader overlays (V5 Render Free Tier recovery helper)
+function showLoading(text = "กำลังปลุกเซิร์ฟเวอร์คลาวด์ กรุณารอประมาณ 1 นาที...") {
+    const overlay = document.getElementById("loading-overlay");
+    const txt = document.getElementById("loading-text");
+    if (overlay && txt) {
+        txt.innerText = text;
+        overlay.classList.remove("hidden");
+    }
+}
+
+function hideLoading() {
+    const overlay = document.getElementById("loading-overlay");
+    if (overlay) {
+        overlay.classList.add("hidden");
+    }
+}
+
+// Forget password modal functions
+function openForgetPasswordModal() {
+    document.getElementById("forget-password-modal").classList.remove("hidden");
+}
+
+function closeForgetPasswordModal() {
+    document.getElementById("forget-password-modal").classList.add("hidden");
+}
+
 // Toggle between Login and Register Cards
 function toggleAuthCard(card) {
     const loginCard = document.getElementById("login-card");
@@ -70,6 +96,7 @@ async function handleLogin(event) {
     const usernameVal = document.getElementById("login-username").value.trim();
     const passwordVal = document.getElementById("login-password").value;
     
+    showLoading("กำลังยืนยันข้อมูลและปลุกเซิร์ฟเวอร์คลาวด์ กรุณารอประมาณ 1 นาที...");
     try {
         const response = await fetch("/api/auth/login", {
             method: "POST",
@@ -93,6 +120,8 @@ async function handleLogin(event) {
     } catch (error) {
         console.error("Login error:", error);
         alert(error.message);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -103,6 +132,7 @@ async function handleRegister(event) {
     const usernameVal = document.getElementById("register-username").value.trim();
     const passwordVal = document.getElementById("register-password").value;
     
+    showLoading("กำลังบันทึกข้อมูลการสมัครสมาชิกและปลุกเซิร์ฟเวอร์คลาวด์ กรุณารอประมาณ 1 นาที...");
     try {
         const response = await fetch("/api/auth/register", {
             method: "POST",
@@ -125,6 +155,8 @@ async function handleRegister(event) {
     } catch (error) {
         console.error("Register error:", error);
         alert(error.message);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -506,8 +538,30 @@ function toggleRightAssignmentPercentageInput() {
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    checkAuthStatus();
+document.addEventListener("DOMContentLoaded", async () => {
+    const token = getToken();
+    if (token) {
+        showLoading("กำลังตรวจสอบเซสชันและปลุกเซิร์ฟเวอร์คลาวด์ กรุณารอประมาณ 1 นาที...");
+        try {
+            const response = await fetch("/api/auth/me", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const user = await response.json();
+                localStorage.setItem("current_user", JSON.stringify(user));
+                checkAuthStatus();
+            } else {
+                handleLogout();
+            }
+        } catch (err) {
+            console.error("Startup auth check error:", err);
+            checkAuthStatus();
+        } finally {
+            hideLoading();
+        }
+    } else {
+        checkAuthStatus();
+    }
 });
 
 function initApp() {
