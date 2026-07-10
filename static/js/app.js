@@ -826,6 +826,8 @@ function renderProjectsTable(projects) {
             <td class="px-6 py-4 font-semibold text-slate-500 text-xs">${project.id}</td>
             <td class="px-6 py-4 font-semibold text-slate-900 text-sm hover:text-indigo-600 cursor-pointer" onclick="openDetailModal(${project.id})">${project.name}</td>
             <td class="px-6 py-4 text-slate-500 text-sm">${project.owner}</td>
+            <td class="px-6 py-4 text-slate-700 text-sm font-medium">${project.contractor || "-"}</td>
+            <td class="px-6 py-4 text-slate-600 text-sm">${project.job_type || "-"}</td>
             <td class="px-6 py-4 font-semibold text-slate-900 text-sm">${formatCurrency(project.budget)}</td>
             <td class="px-6 py-4 text-slate-500 text-xs">${formatThaiDate(project.start_date)} - ${formatThaiDate(project.end_date)}</td>
             <td class="px-6 py-4">
