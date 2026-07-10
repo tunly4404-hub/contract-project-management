@@ -1631,6 +1631,7 @@ function renderPOsTable(pos) {
         row.innerHTML = `
             <td class="px-6 py-4 font-mono font-bold text-indigo-600 text-sm cursor-pointer" onclick="openPODetailModal(${po.id})">${po.po_number}</td>
             <td class="px-6 py-4 font-semibold text-slate-800 text-sm truncate max-w-[280px]" title="${projName}">${projName}</td>
+            <td class="px-6 py-4 text-slate-500 text-sm">${po.owner || "-"}</td>
             <td class="px-6 py-4 font-bold text-slate-900 text-sm">${formatCurrency(po.budget)}</td>
             <td class="px-6 py-4 text-slate-500 text-xs">${formatThaiDate(po.due_date)}</td>
             <td class="px-6 py-4 text-slate-600 text-sm">${po.contractor}</td>

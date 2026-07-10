@@ -59,10 +59,12 @@ def auto_seed_db():
 
 auto_seed_db()
 
-# Create uploads folder if it doesn't exist (V4 subfolders)
-UPLOAD_DIR = "./uploads"
-UPLOAD_PO_DIR = "./uploads/pos"
-UPLOAD_DELIVERY_DIR = "./uploads/deliveries"
+# Support persistent directory (e.g. Render Disk mounted at /data)
+PERSISTENT_DIR = "/data" if os.path.exists("/data") and os.path.isdir("/data") else "."
+
+UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "uploads")
+UPLOAD_PO_DIR = os.path.join(UPLOAD_DIR, "pos")
+UPLOAD_DELIVERY_DIR = os.path.join(UPLOAD_DIR, "deliveries")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(UPLOAD_PO_DIR, exist_ok=True)
@@ -672,7 +674,7 @@ def delete_guarantee_receipt(project_id: int, username: str = Depends(get_curren
 
 # Mount Static and Uploads directories
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Redirect root to /static/index.html
 @app.get("/")

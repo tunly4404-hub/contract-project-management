@@ -6,7 +6,8 @@ from sqlalchemy.orm import sessionmaker
 # Support external persistent PostgreSQL (or fallback to SQLite)
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL or not DATABASE_URL.strip():
-    DATABASE_URL = "sqlite:///./projects.db"
+    persistent_dir = "/data" if os.path.exists("/data") and os.path.isdir("/data") else "."
+    DATABASE_URL = f"sqlite:///{persistent_dir}/projects.db"
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
