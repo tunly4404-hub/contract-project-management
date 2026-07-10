@@ -970,6 +970,7 @@ async function saveProject(event) {
     };
     
     try {
+        showLoading("กำลังบันทึกข้อมูลโครงการ...");
         let response;
         let savedProject;
         
@@ -1021,6 +1022,8 @@ async function saveProject(event) {
     } catch (error) {
         console.error("Error saving project:", error);
         alert("เกิดข้อผิดพลาดในการบันทึกโครงการ: " + error.message);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -1076,6 +1079,7 @@ async function deleteProject(id) {
     if (!confirm("คุณต้องการลบโครงการนี้ใช่หรือไม่? การดำเนินการนี้จะลบรายการส่งมอบและเอกสารแนบทั้งหมด")) return;
     
     try {
+        showLoading("กำลังลบข้อมูลโครงการ...");
         const response = await secureFetch(`/api/projects/${id}`, {
             method: "DELETE"
         });
@@ -1089,6 +1093,8 @@ async function deleteProject(id) {
     } catch (error) {
         console.error("Error deleting project:", error);
         alert("ไม่สามารถลบโครงการได้: " + error.message);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -1791,6 +1797,7 @@ async function savePO(event) {
     };
     
     try {
+        showLoading("กำลังบันทึกข้อมูลใบสั่งซื้อ...");
         let response;
         let savedPO;
         
@@ -1837,6 +1844,8 @@ async function savePO(event) {
     } catch (error) {
         console.error("Error saving PO:", error);
         alert("เกิดข้อผิดพลาดในการบันทึกใบสั่งซื้อ: " + error.message);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -1874,6 +1883,7 @@ async function deletePO(id) {
     if (!confirm("คุณแน่ใจว่าต้องการลบใบสั่งซื้อ PO นี้? การลบจะรวมถึงการเคลียร์ไฟล์แนบทั้งหมดของ PO นี้")) return;
     
     try {
+        showLoading("กำลังลบข้อมูลใบสั่งซื้อ...");
         const response = await secureFetch(`/api/purchase-orders/${id}`, {
             method: "DELETE"
         });
@@ -1887,6 +1897,8 @@ async function deletePO(id) {
     } catch (error) {
         console.error("Error deleting PO:", error);
         alert("เกิดข้อผิดพลาดในการลบใบสั่งซื้อ: " + error.message);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -2128,6 +2140,7 @@ async function savePODelivery(event) {
     };
     
     try {
+        showLoading("กำลังบันทึกข้อมูลการส่งมอบ...");
         const response = await secureFetch(`/api/purchase-orders/${currentPOId}`, {
             method: "PUT",
             body: JSON.stringify(deliveryData)
@@ -2156,6 +2169,8 @@ async function savePODelivery(event) {
     } catch (error) {
         console.error("Error saving delivery:", error);
         alert("เกิดข้อผิดพลาดในการบันทึก: " + error.message);
+    } finally {
+        hideLoading();
     }
 }
 
