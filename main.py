@@ -212,6 +212,16 @@ def toggle_user_active(user_id: int, current_admin = Depends(check_admin_role), 
     db.refresh(db_user)
     return db_user
 
+@app.put("/api/users/{user_id}/reset-password")
+def reset_user_password(user_id: int, payload: schemas.UserResetPassword, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งานในระบบ")
+        
+    db_user.hashed_password = crud.get_password_hash(payload.new_password)
+    db.commit()
+    return {"detail": f"เปลี่ยนรหัสผ่านสำหรับผู้ใช้งาน {db_user.username} เรียบร้อยแล้ว"}
+
 
 # Dashboard Endpoints (Secured)
 @app.get("/api/dashboard/stats", response_model=schemas.DashboardStats)

@@ -2113,7 +2113,7 @@ function renderUsersTable(users) {
         
         // Active Toggle Switch
         const activeToggle = isSelf 
-            ? `<span class="text-xs text-slate-450 italic font-semibold text-slate-400">บัญชีของคุณ</span>` 
+            ? `<span class="text-xs text-slate-400 italic font-semibold">บัญชีของคุณ</span>` 
             : `
             <label class="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" ${u.is_active ? 'checked' : ''} onclick="toggleUserActive(${u.id})" class="sr-only peer">
@@ -2121,10 +2121,20 @@ function renderUsersTable(users) {
             </label>
             `;
             
+        // Reset Password Button
+        const changePwdBtn = `
+            <button onclick="openResetPasswordModal(${u.id}, '${u.username}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150 flex items-center gap-1 font-semibold">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2-2a2 2 0 00-2 2m2-2a2 2 0 002 2m0 0V19a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3a2 2 0 00-2-2H9a2 2 0 00-2-2V9a2 2 0 012-2h6z" />
+                </svg>
+                แก้ไขรหัสผ่าน
+            </button>
+        `;
+            
         // Delete button
         const deleteBtn = isSelf 
             ? "" 
-            : `<button onclick="deleteUser(${u.id}, '${u.username}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg transition duration-150">ลบ</button>`;
+            : `<button onclick="deleteUser(${u.id}, '${u.username}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150 font-semibold">ลบ</button>`;
             
         const statusBadge = u.is_active 
             ? `<span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold">ปกติ</span>`
@@ -2142,13 +2152,50 @@ function renderUsersTable(users) {
                 </span>
             </td>
             <td class="px-6 py-4">${statusBadge}</td>
-            <td class="px-6 py-4 flex items-center gap-4 justify-center">
-                <div class="flex items-center gap-2">${activeToggle}</div>
+            <td class="px-6 py-4 flex items-center gap-2 justify-center">
+                <div class="flex items-center gap-2 mr-2">${activeToggle}</div>
+                ${changePwdBtn}
                 ${deleteBtn}
             </td>
         `;
         tbody.appendChild(row);
     });
+}
+
+function openResetPasswordModal(userId, username) {
+    document.getElementById("reset-pwd-user-id").value = userId;
+    document.getElementById("reset-pwd-username-display").innerText = username;
+    document.getElementById("reset-pwd-new-password").value = "";
+    document.getElementById("reset-password-modal").classList.remove("hidden");
+}
+
+function closeResetPasswordModal() {
+    document.getElementById("reset-password-modal").classList.add("hidden");
+}
+
+async function submitResetPassword(event) {
+    event.preventDefault();
+    const userId = document.getElementById("reset-pwd-user-id").value;
+    const newPassword = document.getElementById("reset-pwd-new-password").value;
+    
+    try {
+        const response = await secureFetch(`/api/users/${userId}/reset-password`, {
+            method: "PUT",
+            body: JSON.stringify({ new_password: newPassword })
+        });
+        
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Failed to reset password");
+        }
+        
+        alert("เปลี่ยนรหัสผ่านสำหรับผู้ใช้งานสำเร็จ!");
+        closeResetPasswordModal();
+        fetchUsers();
+    } catch (error) {
+        console.error("Error resetting password:", error);
+        alert("เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน: " + error.message);
+    }
 }
 
 async function toggleUserActive(userId) {

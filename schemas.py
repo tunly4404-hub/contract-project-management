@@ -18,6 +18,9 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 
+class UserResetPassword(BaseModel):
+    new_password: str
+
 class UserLogin(BaseModel):
     username: str
     password: str
