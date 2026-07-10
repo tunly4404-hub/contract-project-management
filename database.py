@@ -16,12 +16,24 @@ if DATABASE_URL.startswith("sqlite"):
         DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(
-        DATABASE_URL,
-        pool_size=10,
-        max_overflow=20,
-        pool_recycle=1800
-    )
+    try:
+        # Test connection to ensure host is reachable and credentials are valid
+        temp_engine = create_engine(DATABASE_URL)
+        with temp_engine.connect() as conn:
+            pass
+        engine = create_engine(
+            DATABASE_URL,
+            pool_size=10,
+            max_overflow=20,
+            pool_recycle=1800
+        )
+        print("Successfully connected to external PostgreSQL database.")
+    except Exception as e:
+        print(f"Warning: Failed to connect to PostgreSQL database. Falling back to local SQLite. Error: {e}")
+        DATABASE_URL = "sqlite:///./projects.db"
+        engine = create_engine(
+            DATABASE_URL, connect_args={"check_same_thread": False}
+        )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
