@@ -179,7 +179,7 @@ def export_purchase_orders_to_excel(pos):
             po.project.name if po.project else "-",
             po.project.owner if po.project else "-",
             po.budget,
-            format_thai_date(po.delivery_deadline),
+            format_thai_date(po.due_date),
             po.contractor,
             po.delivery_status
         ]
@@ -391,7 +391,7 @@ def export_project_detail_to_excel(project):
             p.po_number,
             p.material_type,
             p.budget,
-            format_thai_date(p.delivery_deadline),
+            format_thai_date(p.due_date),
             p.contractor,
             p.delivery_status,
             p.delivery_no or "-",
@@ -457,7 +457,7 @@ def export_po_detail_to_excel(po):
         ("ประเภทวัสดุ / รายการจัดซื้อ", po.material_type),
         ("งบประมาณใบสั่งซื้อ PO", po.budget),
         ("ผู้รับผิดชอบจัดซื้อ", po.contractor),
-        ("กำหนดเวลาส่งมอบสินค้า", format_thai_date(po.delivery_deadline)),
+        ("กำหนดเวลาส่งมอบสินค้า", format_thai_date(po.due_date)),
         ("สถานะการจัดส่ง", po.delivery_status),
         ("เลขที่ใบส่งของ / ส่งมอบของ", po.delivery_no or "-"),
         ("วันที่ส่งมอบสินค้าจริง", format_thai_date(po.delivery_date)),
