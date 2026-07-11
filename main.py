@@ -823,7 +823,7 @@ def export_projects_excel(query: Optional[str] = None, status: Optional[str] = N
 @app.get("/api/exports/purchase-orders/excel")
 def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
     try:
-        pos = crud.get_purchase_orders(db, skip=0, limit=1000)
+        pos = crud.get_purchase_orders(db)
         filtered = []
         for po in pos:
             if status and status != "ทั้งหมด":
