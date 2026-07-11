@@ -1040,14 +1040,40 @@ async function saveProject(event) {
                 method: "PUT",
                 body: JSON.stringify(projectData)
             });
-            if (!response.ok) throw new Error("Failed to update project");
+            if (!response.ok) {
+                let errMsg = "Failed to update project";
+                try {
+                    const errJson = await response.json();
+                    if (errJson && errJson.detail) {
+                        if (typeof errJson.detail === 'object') {
+                            errMsg = JSON.stringify(errJson.detail);
+                        } else {
+                            errMsg = errJson.detail;
+                        }
+                    }
+                } catch(e) {}
+                throw new Error(errMsg);
+            }
             savedProject = await response.json();
         } else {
             response = await secureFetch("/api/projects", {
                 method: "POST",
                 body: JSON.stringify(projectData)
             });
-            if (!response.ok) throw new Error("Failed to create project");
+            if (!response.ok) {
+                let errMsg = "Failed to create project";
+                try {
+                    const errJson = await response.json();
+                    if (errJson && errJson.detail) {
+                        if (typeof errJson.detail === 'object') {
+                            errMsg = JSON.stringify(errJson.detail);
+                        } else {
+                            errMsg = errJson.detail;
+                        }
+                    }
+                } catch(e) {}
+                throw new Error(errMsg);
+            }
             savedProject = await response.json();
             
             const fileInput = document.getElementById("form-file");
