@@ -115,7 +115,7 @@
     <div id="app-container" class="hidden min-h-screen flex flex-col bg-slate-50/50">
         <!-- Header / Navbar -->
         <nav class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-[96%] mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-16">
                     <div class="flex">
                         <!-- Logo -->
@@ -175,7 +175,7 @@
         </nav>
 
         <!-- Main Content Area -->
-        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main class="flex-grow max-w-[96%] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
             <!-- 1. DASHBOARD VIEW -->
             <section id="view-dashboard" class="space-y-8 animate-fade-in">
@@ -629,7 +629,7 @@
 
         <!-- Footer -->
         <footer class="bg-white border-t border-slate-200 py-6 mt-12">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
+            <div class="max-w-[96%] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
                 <p>ระบบจัดการสัญญาและโครงการ v1.0.0 © 2026. พัฒนาโดย Antigravity AI.</p>
                 <p>ฐานข้อมูล: SQLite (Persistent) | Backend: FastAPI (Python)</p>
             </div>
@@ -857,7 +857,7 @@
 
     <!-- MODAL 2: PROJECT DETAILS & DELIVERABLES -->
     <div id="detail-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-[96%] xl:max-w-[90%] w-full max-h-[95vh] overflow-hidden flex flex-col animate-fade-in">
             <!-- Modal Header -->
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between flex-shrink-0">
                 <div>
@@ -1206,7 +1206,7 @@
 
     <!-- MODAL 4: PURCHASE ORDER DETAILS & DELIVERY TRACKING (V4) -->
     <div id="po-detail-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-[96%] xl:max-w-[90%] w-full max-h-[95vh] overflow-hidden flex flex-col animate-fade-in">
             <!-- Modal Header -->
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between flex-shrink-0">
                 <div>
@@ -1489,6 +1489,6 @@
     </div>
 
     <!-- JS Core Logic App -->
-    <script src="/static/js/app.js?v=1.1.13"></script>
+    <script src="/static/js/app.js?v=1.1.14"></script>
 </body>
 </html>
