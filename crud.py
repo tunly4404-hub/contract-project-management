@@ -277,7 +277,7 @@ def get_dashboard_po_alerts(db: Session):
     alerts = []
     for po in pos:
         days_remaining = (po.due_date - today).days
-        if days_remaining <= 7:
+        if days_remaining <= 3:
             project = db.query(models.Project).filter(models.Project.id == po.project_id).first()
             if project and (not project.start_date or not project.end_date):
                 continue
