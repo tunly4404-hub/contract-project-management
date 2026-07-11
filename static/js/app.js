@@ -1573,6 +1573,11 @@ function renderDeliverablesTable(deliverables) {
                     <button onclick="toggleDeliverableStatus(${del.id}, '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
                         ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
                     </button>
+                    <button onclick="editDeliverable(${del.id})" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
                     ${deleteButton}
                 </td>
             `;
@@ -1589,6 +1594,11 @@ function renderDeliverablesTable(deliverables) {
                 <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
                     <button onclick="toggleDeliverableStatus(${del.id}, '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
                         ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
+                    </button>
+                    <button onclick="editDeliverable(${del.id})" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
                     </button>
                     ${deleteButton}
                 </td>
@@ -2965,5 +2975,124 @@ function exportPODetailExcel() {
     const url = `/api/exports/purchase-orders/${currentPOId}/excel`;
     downloadExcelFile(url, `purchase_order_detail_${currentPOId}.xlsx`);
 }
+
+// ====================================================
+// EDIT DELIVERABLE MODAL SUB-LOGIC
+// ====================================================
+let currentEditingDeliverable = null;
+
+function editDeliverable(id) {
+    secureFetch(`/api/projects/${currentProjectId}`)
+        .then(response => {
+            if (!response.ok) throw new Error("Failed to fetch project detail");
+            return response.json();
+        })
+        .then(project => {
+            const del = project.deliverables.find(d => d.id === id);
+            if (!del) return;
+            
+            currentEditingDeliverable = del;
+            
+            document.getElementById("edit-deliv-id").value = del.id;
+            document.getElementById("edit-deliv-name").value = del.name;
+            document.getElementById("edit-deliv-milestone").value = del.milestone || "";
+            document.getElementById("edit-deliv-budget").value = del.budget || "";
+            document.getElementById("edit-deliv-due").value = del.due_date;
+            document.getElementById("edit-deliv-status").value = del.status;
+            
+            const invoiceContainer = document.getElementById("edit-deliv-invoices-container");
+            if (currentProjectRightAssignment === "โอนสิทธิ์") {
+                invoiceContainer.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เลขที่การส่งภายใน (Internal No.)</label>
+                            <input type="text" id="edit-deliv-internal-no" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">เลขที่การส่งภายนอก (External No.)</label>
+                            <input type="text" id="edit-deliv-external-no" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+                `;
+                document.getElementById("edit-deliv-internal-no").value = del.internal_delivery_no || "";
+                document.getElementById("edit-deliv-external-no").value = del.external_delivery_no || "";
+            } else {
+                invoiceContainer.innerHTML = `
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase">เลขที่ใบส่งของ (Delivery Invoice No.)</label>
+                        <input type="text" id="edit-deliv-delivery-no" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                `;
+                document.getElementById("edit-deliv-delivery-no").value = del.delivery_no || "";
+            }
+            
+            document.getElementById("edit-deliverable-modal").classList.remove("hidden");
+        })
+        .catch(error => {
+            console.error("Error fetching deliverable details:", error);
+            alert("ไม่สามารถดึงข้อมูลรายละเอียดงวดงานได้: " + error.message);
+        });
+}
+
+function closeEditDeliverableModal() {
+    document.getElementById("edit-deliverable-modal").classList.add("hidden");
+    currentEditingDeliverable = null;
+}
+
+async function submitEditDeliverable(event) {
+    event.preventDefault();
+    if (!currentEditingDeliverable) return;
+    
+    const id = currentEditingDeliverable.id;
+    const name = document.getElementById("edit-deliv-name").value;
+    const milestone = document.getElementById("edit-deliv-milestone").value || null;
+    const budgetVal = document.getElementById("edit-deliv-budget").value;
+    const budget = budgetVal ? parseFloat(budgetVal) : null;
+    const due_date = document.getElementById("edit-deliv-due").value;
+    const status = document.getElementById("edit-deliv-status").value;
+    
+    let deliveryNoVal = null;
+    let internalNoVal = null;
+    let externalNoVal = null;
+    
+    if (currentProjectRightAssignment === "โอนสิทธิ์") {
+        internalNoVal = document.getElementById("edit-deliv-internal-no").value || null;
+        externalNoVal = document.getElementById("edit-deliv-external-no").value || null;
+    } else {
+        deliveryNoVal = document.getElementById("edit-deliv-delivery-no").value || null;
+    }
+    
+    const deliverableData = {
+        name,
+        milestone,
+        budget,
+        due_date,
+        status,
+        delivery_no: deliveryNoVal,
+        internal_delivery_no: internalNoVal,
+        external_delivery_no: externalNoVal
+    };
+    
+    showLoading();
+    try {
+        const response = await secureFetch(`/api/deliverables/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(deliverableData)
+        });
+        if (!response.ok) throw new Error("Failed to update deliverable");
+        
+        closeEditDeliverableModal();
+        
+        if (currentProjectId) {
+            await openDetailModal(currentProjectId);
+        }
+    } catch (error) {
+        console.error("Error updating deliverable:", error);
+        alert("ไม่สามารถบันทึกการแก้ไขได้: " + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
 
 

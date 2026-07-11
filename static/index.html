@@ -929,11 +929,7 @@
                             </div>
                         </div>
 
-                        <!-- Budget Summary Breakdown -->
-                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 font-medium text-slate-600">
-                            <span>งบสั่งซื้อ PO ทั้งหมด:</span>
-                            <span id="detail-breakdown-po-budget" class="text-right text-slate-800 font-bold">฿0.00</span>
-                        </div>
+
                     </div>
 
                     <!-- Guarantee Document (LG/Slip) file box -->
@@ -1343,6 +1339,63 @@
         </div>
     </div>
 
+    <!-- MODAL: EDIT DELIVERABLE DETAILS -->
+    <div id="edit-deliverable-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden animate-fade-in">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+                <h3 class="font-bold text-base text-slate-900">แก้ไขงวดงาน/รายการส่งมอบ</h3>
+                <button type="button" onclick="closeEditDeliverableModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <!-- Modal Form Body -->
+            <form onsubmit="submitEditDeliverable(event)" class="p-6 space-y-4">
+                <input type="hidden" id="edit-deliv-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase">รายการส่งมอบ / วัสดุ <span class="text-rose-500">*</span></label>
+                    <input type="text" id="edit-deliv-name" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase">งวดงาน</label>
+                        <input type="text" id="edit-deliv-milestone" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase">งบประมาณงวดงาน (บาท)</label>
+                        <input type="number" step="0.01" min="0" id="edit-deliv-budget" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                
+                <!-- Dynamic Invoice numbers -->
+                <div id="edit-deliv-invoices-container" class="space-y-4">
+                    <!-- Populated dynamically based on assignment -->
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ต้องส่งมอบ <span class="text-rose-500">*</span></label>
+                        <input type="date" id="edit-deliv-due" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase">สถานะดำเนินการ</label>
+                        <select id="edit-deliv-status" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="รอดำเนินการ">รอดำเนินการ</option>
+                            <option value="ส่งมอบแล้ว">ส่งมอบแล้ว</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end pt-2 border-t border-slate-100 space-x-2">
+                    <button type="button" onclick="closeEditDeliverableModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 transition duration-150">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition duration-150 shadow-sm">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL 5: ADMIN RESET PASSWORD (V5 RBAC) -->
     <div id="reset-password-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden animate-fade-in">
@@ -1405,6 +1458,6 @@
     </div>
 
     <!-- JS Core Logic App -->
-    <script src="/static/js/app.js?v=1.1.8"></script>
+    <script src="/static/js/app.js?v=1.1.9"></script>
 </body>
 </html>
