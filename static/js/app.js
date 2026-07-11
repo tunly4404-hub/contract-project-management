@@ -2828,16 +2828,49 @@ function populateProjectDetailsBreakdown(project) {
     document.getElementById("detail-breakdown-deliv-text").innerText = `${completedDeliv}/${totalDeliv} รายการ (${delivPercent}%)`;
     document.getElementById("detail-breakdown-deliv-bar").style.width = `${delivPercent}%`;
     
-    // 2. POs Progress
-    const pos = project.purchase_orders || [];
-    const totalPOs = pos.length;
-    const completedPOs = pos.filter(p => p.delivery_status === "ส่งมอบแล้ว").length;
-    const poPercent = totalPOs > 0 ? Math.round((completedPOs / totalPOs) * 100) : 0;
-    
-    document.getElementById("detail-breakdown-po-text").innerText = `${completedPOs}/${totalPOs} รายการ (${poPercent}%)`;
-    document.getElementById("detail-breakdown-po-bar").style.width = `${poPercent}%`;
+    // 2. Contract Duration Calculation
+    if (project.start_date && project.end_date) {
+        const start = new Date(project.start_date);
+        const end = new Date(project.end_date);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        // Total contract days
+        const totalTime = end.getTime() - start.getTime();
+        const totalDays = Math.ceil(totalTime / (1000 * 3600 * 24)) + 1; // inclusive
+        
+        // Elapsed days from start date
+        let elapsedDays = 0;
+        if (today >= start) {
+            const elapsedTime = today.getTime() - start.getTime();
+            elapsedDays = Math.ceil(elapsedTime / (1000 * 3600 * 24)) + 1; // inclusive
+            if (elapsedDays > totalDays) {
+                elapsedDays = totalDays;
+            }
+        }
+        
+        // Remaining days
+        let remainingDays = 0;
+        if (today < end) {
+            const remainingTime = end.getTime() - today.getTime();
+            remainingDays = Math.ceil(remainingTime / (1000 * 3600 * 24));
+        }
+        
+        const durationPercent = totalDays > 0 ? Math.round((elapsedDays / totalDays) * 100) : 0;
+        
+        document.getElementById("detail-breakdown-duration-text").innerText = `ดำเนินการไปแล้ว ${elapsedDays}/${totalDays} วัน (${durationPercent}%)`;
+        document.getElementById("detail-breakdown-duration-bar").style.width = `${durationPercent}%`;
+        document.getElementById("detail-breakdown-duration-elapsed").innerText = `ดำเนินการไปแล้ว: ${elapsedDays} วัน`;
+        document.getElementById("detail-breakdown-duration-remaining").innerText = `คงเหลือ: ${remainingDays} วัน`;
+    } else {
+        document.getElementById("detail-breakdown-duration-text").innerText = `ยังไม่ได้ระบุวันเริ่มต้น-สิ้นสุด`;
+        document.getElementById("detail-breakdown-duration-bar").style.width = `0%`;
+        document.getElementById("detail-breakdown-duration-elapsed").innerText = `ดำเนินการไปแล้ว: - วัน`;
+        document.getElementById("detail-breakdown-duration-remaining").innerText = `คงเหลือ: - วัน`;
+    }
     
     // 3. PO Budget Summary
+    const pos = project.purchase_orders || [];
     const poTotalBudget = pos.reduce((sum, p) => sum + (p.budget || 0), 0);
     document.getElementById("detail-breakdown-po-budget").innerText = formatCurrency(poTotalBudget);
 }
