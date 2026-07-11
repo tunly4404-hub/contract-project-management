@@ -696,33 +696,39 @@
                 <!-- Section 2: ระยะเวลาสัญญา -->
                 <div class="space-y-4">
                     <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">2. ระยะเวลาดำเนินงานหลัก</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ไปเซ็นสัญญา</label>
-                            <input type="date" id="form-contract-signing-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <div class="space-y-4">
+                        <!-- Row 1: Contract Dates -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">วันที่ไปเซ็นสัญญา</label>
+                                <input type="date" id="form-contract-signing-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">วันที่เริ่มต้นสัญญา</label>
+                                <input type="date" id="form-start-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">วันที่สิ้นสุดสัญญา</label>
+                                <input type="date" id="form-end-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่เริ่มต้นสัญญา</label>
-                            <input type="date" id="form-start-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่สิ้นสุดสัญญา</label>
-                            <input type="date" id="form-end-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">วันที่สั่งเข้างานจริง</label>
-                            <input type="date" id="form-work-order-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase">ระยะเวลากำหนดส่งมอบ (วัน)</label>
-                            <input type="number" min="0" id="form-contract-duration-days" placeholder="เช่น 180" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <!-- Row 2: Work Order & Duration -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">วันที่สั่งเข้างานจริง</label>
+                                <input type="date" id="form-work-order-date" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase">ระยะเวลากำหนดส่งมอบ (วัน)</label>
+                                <input type="number" min="0" id="form-contract-duration-days" placeholder="เช่น 180" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Section 3: การคู่สัญญากลาง -->
                 <div class="space-y-4">
-                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">3. คู่ค้า / การส่งมอบแบบแสดงตัวตน</h4>
+                    <h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-1.5">3. การได้รับคู่ฉบับสัญญา</h4>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 uppercase">การได้รับคู่ฉบับสัญญา</label>
@@ -1458,6 +1464,6 @@
     </div>
 
     <!-- JS Core Logic App -->
-    <script src="/static/js/app.js?v=1.1.11"></script>
+    <script src="/static/js/app.js?v=1.1.12"></script>
 </body>
 </html>
