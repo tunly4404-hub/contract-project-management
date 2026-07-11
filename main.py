@@ -17,6 +17,37 @@ from database import engine, get_db, SessionLocal
 # Create DB tables
 models.Base.metadata.create_all(bind=engine)
 
+# Auto-migrate database fields if needed
+def run_migrations():
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    
+    # 1. Projects table
+    try:
+        columns = [col['name'] for col in inspector.get_columns('projects')]
+        if 'contract_duration_days' not in columns:
+            print("Adding 'contract_duration_days' column to 'projects' table...")
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN contract_duration_days INTEGER;"))
+    except Exception as e:
+        print(f"Error migrating projects table: {e}")
+        
+    # 2. Deliverables table
+    try:
+        columns = [col['name'] for col in inspector.get_columns('deliverables')]
+        if 'milestone' not in columns:
+            print("Adding 'milestone' column to 'deliverables' table...")
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE deliverables ADD COLUMN milestone TEXT;"))
+        if 'budget' not in columns:
+            print("Adding 'budget' column to 'deliverables' table...")
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE deliverables ADD COLUMN budget FLOAT;"))
+    except Exception as e:
+        print(f"Error migrating deliverables table: {e}")
+
+run_migrations()
+
 # Auto-seed admin user if users table is empty (V5 RBAC Render helper)
 def auto_seed_db():
     db = SessionLocal()

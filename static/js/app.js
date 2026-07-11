@@ -927,8 +927,8 @@ function openProjectModal(title = "เพิ่มโครงการสัญ
     document.getElementById("form-right-assignment-percentage").value = "";
     document.getElementById("form-guarantee-bank").value = "";
     document.getElementById("form-guarantee-expiry-date").value = "";
-    document.getElementById("form-guarantee-receipt-number").value = "";
     document.getElementById("form-fiscal-year").value = "";
+    document.getElementById("form-contract-duration-days").value = "";
     
     toggleBankGuaranteeFields();
     toggleRightAssignmentPercentageInput();
@@ -953,6 +953,7 @@ async function saveProject(event) {
     const startDate = document.getElementById("form-start-date").value || null;
     const endDate = document.getElementById("form-end-date").value || null;
     const fiscalYearVal = parseInt(document.getElementById("form-fiscal-year").value) || null;
+    const contractDurationDays = parseInt(document.getElementById("form-contract-duration-days").value) || null;
     
     let contractorVal = document.getElementById("form-contractor").value;
     if (contractorVal === "ADD_NEW") {
@@ -1002,6 +1003,7 @@ async function saveProject(event) {
         start_date: startDate,
         end_date: endDate,
         contract_signing_date: contractSigningDate,
+        contract_duration_days: contractDurationDays,
         
         contract_number: document.getElementById("form-contract-number").value || null,
         contractor: contractorVal || null,
@@ -1119,6 +1121,7 @@ function editProject(id) {
     document.getElementById("form-guarantee-receipt-number").value = project.guarantee_receipt_number || "";
     
     document.getElementById("form-work-order-date").value = project.work_order_date || "";
+    document.getElementById("form-contract-duration-days").value = project.contract_duration_days || "";
     document.getElementById("form-right-assignment").value = project.right_assignment || "ไม่ได้โอนสิทธิ์";
     document.getElementById("form-right-assignment-percentage").value = project.right_assignment_percentage !== null ? project.right_assignment_percentage : "";
     document.getElementById("form-guarantee-bank").value = project.guarantee_bank || "";
@@ -1199,6 +1202,7 @@ async function openDetailModal(id) {
         document.getElementById("detail-start-date").innerText = formatThaiDate(project.start_date);
         document.getElementById("detail-end-date").innerText = formatThaiDate(project.end_date);
         document.getElementById("detail-work-order-date").innerText = formatThaiDate(project.work_order_date);
+        document.getElementById("detail-contract-duration-days").innerText = project.contract_duration_days ? `${project.contract_duration_days} วัน` : "-";
         
         let counterpartText = project.counterpart_status;
         if (project.counterpart_status === "ได้รับแล้ว" && project.counterpart_date) {
@@ -1475,6 +1479,8 @@ function setupDeliverablesDynamicFormAndHeader(project) {
     if (project.right_assignment === "โอนสิทธิ์") {
         headerRow.innerHTML = `
             <th scope="col" class="px-4 py-3">รายการส่งมอบ / วัสดุ</th>
+            <th scope="col" class="px-4 py-3">งวดงาน</th>
+            <th scope="col" class="px-4 py-3">งบประมาณ</th>
             <th scope="col" class="px-4 py-3">เลขที่การส่งภายใน (Internal)</th>
             <th scope="col" class="px-4 py-3">เลขที่การส่งภายนอก (External)</th>
             <th scope="col" class="px-4 py-3">วันที่ต้องส่งมอบ</th>
@@ -1493,6 +1499,8 @@ function setupDeliverablesDynamicFormAndHeader(project) {
     } else {
         headerRow.innerHTML = `
             <th scope="col" class="px-4 py-3">รายการส่งมอบ / วัสดุ</th>
+            <th scope="col" class="px-4 py-3">งวดงาน</th>
+            <th scope="col" class="px-4 py-3">งบประมาณ</th>
             <th scope="col" class="px-4 py-3">เลขที่ใบส่งของ</th>
             <th scope="col" class="px-4 py-3">วันที่ต้องส่งมอบ</th>
             <th scope="col" class="px-4 py-3">สถานะ</th>
@@ -1546,6 +1554,8 @@ function renderDeliverablesTable(deliverables) {
         if (currentProjectRightAssignment === "โอนสิทธิ์") {
             row.innerHTML = `
                 <td class="px-4 py-3 font-semibold text-slate-800">${del.name}</td>
+                <td class="px-4 py-3 text-slate-600 font-medium">${del.milestone || "-"}</td>
+                <td class="px-4 py-3 text-slate-700 font-semibold">${del.budget ? formatCurrency(del.budget) : "-"}</td>
                 <td class="px-4 py-3 text-slate-600 font-mono">${del.internal_delivery_no || "-"}</td>
                 <td class="px-4 py-3 text-slate-600 font-mono">${del.external_delivery_no || "-"}</td>
                 <td class="px-4 py-3 text-slate-500">${formatThaiDate(del.due_date)}</td>
@@ -1562,6 +1572,8 @@ function renderDeliverablesTable(deliverables) {
         } else {
             row.innerHTML = `
                 <td class="px-4 py-3 font-semibold text-slate-800">${del.name}</td>
+                <td class="px-4 py-3 text-slate-600 font-medium">${del.milestone || "-"}</td>
+                <td class="px-4 py-3 text-slate-700 font-semibold">${del.budget ? formatCurrency(del.budget) : "-"}</td>
                 <td class="px-4 py-3 text-slate-600 font-mono">${del.delivery_no || "-"}</td>
                 <td class="px-4 py-3 text-slate-500">${formatThaiDate(del.due_date)}</td>
                 <td class="px-4 py-3">
@@ -1583,6 +1595,9 @@ async function addDeliverable(event) {
     event.preventDefault();
     
     const name = document.getElementById("add-deliv-name").value;
+    const milestone = document.getElementById("add-deliv-milestone").value || null;
+    const budgetVal = document.getElementById("add-deliv-budget").value;
+    const budget = budgetVal ? parseFloat(budgetVal) : null;
     const due_date = document.getElementById("add-deliv-due").value;
     
     let deliveryNoVal = null;
@@ -1598,6 +1613,8 @@ async function addDeliverable(event) {
     
     const deliverableData = {
         name,
+        milestone,
+        budget,
         due_date,
         status: "รอดำเนินการ",
         delivery_no: deliveryNoVal,
@@ -1613,6 +1630,8 @@ async function addDeliverable(event) {
         if (!response.ok) throw new Error("Failed to add deliverable");
         
         document.getElementById("add-deliv-name").value = "";
+        document.getElementById("add-deliv-milestone").value = "";
+        document.getElementById("add-deliv-budget").value = "";
         document.getElementById("add-deliv-due").value = "";
         
         if (currentProjectRightAssignment === "โอนสิทธิ์") {

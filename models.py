@@ -25,6 +25,7 @@ class Project(Base):
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     contract_signing_date = Column(Date, nullable=True)
+    contract_duration_days = Column(Integer, nullable=True)
     status = Column(String, nullable=False, default="กำลังดำเนินการ") # กำลังดำเนินการ, ล่าช้า, ส่งมอบแล้ว
 
     # V2 Fields
@@ -67,6 +68,8 @@ class Deliverable(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False) # รายการวัสดุ/งวดงาน
+    milestone = Column(String, nullable=True) # งวดงาน
+    budget = Column(Float, nullable=True) # งบประมาณงวดงาน
     due_date = Column(Date, nullable=False)
     status = Column(String, nullable=False, default="รอดำเนินการ") # รอดำเนินการ, ส่งมอบแล้ว
 

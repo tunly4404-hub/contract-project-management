@@ -34,6 +34,8 @@ class Token(BaseModel):
 # Deliverable Schemas
 class DeliverableBase(BaseModel):
     name: str
+    milestone: Optional[str] = None
+    budget: Optional[float] = None
     due_date: date
     status: str = "รอดำเนินการ"
     
@@ -53,6 +55,8 @@ class DeliverableCreate(DeliverableBase):
 
 class DeliverableUpdate(BaseModel):
     name: Optional[str] = None
+    milestone: Optional[str] = None
+    budget: Optional[float] = None
     due_date: Optional[date] = None
     status: Optional[str] = None
     
@@ -152,6 +156,7 @@ class ProjectBase(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     contract_signing_date: Optional[date] = None
+    contract_duration_days: Optional[int] = None
     status: str = "กำลังดำเนินการ"
     
     # V2 fields
@@ -194,6 +199,7 @@ class ProjectUpdate(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     contract_signing_date: Optional[date] = None
+    contract_duration_days: Optional[int] = None
     status: Optional[str] = None
     
     # V2 fields
