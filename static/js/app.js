@@ -3007,64 +3007,6 @@ function exportPODetailExcel() {
 }
 
 // ====================================================
-// PDF EXPORT FEATURES
-// ====================================================
-async function downloadPDFFile(url, filename) {
-    showLoading();
-    try {
-        const response = await secureFetch(url);
-        if (!response.ok) {
-            let errMsg = "Failed to download file";
-            try {
-                const errJson = await response.json();
-                if (errJson && errJson.detail) errMsg = errJson.detail;
-            } catch (e) {}
-            throw new Error(errMsg);
-        }
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = downloadUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-        console.error("Error downloading PDF file:", error);
-        alert("ไม่สามารถดาวน์โหลดไฟล์ PDF ได้: " + error.message);
-    } finally {
-        hideLoading();
-    }
-}
-
-function exportProjectsPDF() {
-    const query = document.getElementById("search-input").value;
-    const status = document.getElementById("status-filter").value;
-    const url = `/api/exports/projects/pdf?query=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}`;
-    downloadPDFFile(url, "projects_summary.pdf");
-}
-
-function exportPOsPDF() {
-    const query = document.getElementById("po-search-input").value;
-    const status = document.getElementById("po-status-filter").value;
-    const url = `/api/exports/purchase-orders/pdf?query=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}`;
-    downloadPDFFile(url, "purchase_orders_summary.pdf");
-}
-
-function exportProjectDetailPDF() {
-    if (!currentProjectId) return;
-    const url = `/api/exports/projects/${currentProjectId}/pdf`;
-    downloadPDFFile(url, `project_detail_${currentProjectId}.pdf`);
-}
-
-function exportPODetailPDF() {
-    if (!currentPOId) return;
-    const url = `/api/exports/purchase-orders/${currentPOId}/pdf`;
-    downloadPDFFile(url, `purchase_order_detail_${currentPOId}.pdf`);
-}
-
-// ====================================================
 // EDIT DELIVERABLE MODAL SUB-LOGIC
 // ====================================================
 let currentEditingDeliverable = null;
