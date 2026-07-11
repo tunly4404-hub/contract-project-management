@@ -31,7 +31,8 @@ else:
         print("Successfully connected to external PostgreSQL database.")
     except Exception as e:
         print(f"Warning: Failed to connect to PostgreSQL database. Falling back to local SQLite. Error: {e}")
-        DATABASE_URL = "sqlite:///./projects.db"
+        persistent_dir = "/data" if os.path.exists("/data") and os.path.isdir("/data") else "."
+        DATABASE_URL = f"sqlite:///{persistent_dir}/projects.db"
         engine = create_engine(
             DATABASE_URL, connect_args={"check_same_thread": False}
         )
