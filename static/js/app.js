@@ -2913,9 +2913,12 @@ function populateProjectDetailsBreakdown(project) {
     }
     
     // 3. PO Budget Summary
-    const pos = project.purchase_orders || [];
-    const poTotalBudget = pos.reduce((sum, p) => sum + (p.budget || 0), 0);
-    document.getElementById("detail-breakdown-po-budget").innerText = formatCurrency(poTotalBudget);
+    const poBudgetSpan = document.getElementById("detail-breakdown-po-budget");
+    if (poBudgetSpan) {
+        const pos = project.purchase_orders || [];
+        const poTotalBudget = pos.reduce((sum, p) => sum + (p.budget || 0), 0);
+        poBudgetSpan.innerText = formatCurrency(poTotalBudget);
+    }
 }
 
 // ====================================================
