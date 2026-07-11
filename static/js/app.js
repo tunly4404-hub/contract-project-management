@@ -828,6 +828,7 @@ function renderProjectsTable(projects) {
             <td class="px-6 py-4 text-slate-500 text-sm">${project.owner}</td>
             <td class="px-6 py-4 text-slate-700 text-sm font-medium">${project.contractor || "-"}</td>
             <td class="px-6 py-4 text-slate-600 text-sm">${project.job_type || "-"}</td>
+            <td class="px-6 py-4 text-slate-650 text-sm font-mono text-slate-600">${project.fiscal_year || "-"}</td>
             <td class="px-6 py-4 font-semibold text-slate-900 text-sm">${formatCurrency(project.budget)}</td>
             <td class="px-6 py-4 text-slate-500 text-xs">${(project.start_date || project.end_date) ? `${formatThaiDate(project.start_date)} - ${formatThaiDate(project.end_date)}` : "-"}</td>
             <td class="px-6 py-4">
@@ -852,6 +853,7 @@ function filterProjects() {
                              project.owner.toLowerCase().includes(searchQuery) ||
                              (project.contractor && project.contractor.toLowerCase().includes(searchQuery)) ||
                              (project.job_type && project.job_type.toLowerCase().includes(searchQuery)) ||
+                             (project.fiscal_year && project.fiscal_year.toString().includes(searchQuery)) ||
                              project.status.toLowerCase().includes(searchQuery);
                              
         const matchesStatus = statusFilter === "ทั้งหมด" || project.status === statusFilter;
@@ -884,6 +886,7 @@ function openProjectModal(title = "เพิ่มโครงการสัญ
     document.getElementById("form-guarantee-bank").value = "";
     document.getElementById("form-guarantee-expiry-date").value = "";
     document.getElementById("form-guarantee-receipt-number").value = "";
+    document.getElementById("form-fiscal-year").value = "";
     
     toggleBankGuaranteeFields();
     toggleRightAssignmentPercentageInput();
@@ -907,6 +910,7 @@ async function saveProject(event) {
     const guaranteeReceiptNumber = document.getElementById("form-guarantee-receipt-number").value || null;
     const startDate = document.getElementById("form-start-date").value || null;
     const endDate = document.getElementById("form-end-date").value || null;
+    const fiscalYearVal = parseInt(document.getElementById("form-fiscal-year").value) || null;
     
     let contractorVal = document.getElementById("form-contractor").value;
     if (contractorVal === "ADD_NEW") {
@@ -952,6 +956,7 @@ async function saveProject(event) {
         owner: document.getElementById("form-owner").value,
         budget: parseFloat(document.getElementById("form-budget").value),
         status: document.getElementById("form-status").value,
+        fiscal_year: fiscalYearVal,
         start_date: startDate,
         end_date: endDate,
         contract_signing_date: contractSigningDate,
@@ -1057,6 +1062,7 @@ function editProject(id) {
     document.getElementById("form-owner").value = project.owner;
     document.getElementById("form-budget").value = project.budget;
     document.getElementById("form-status").value = project.status;
+    document.getElementById("form-fiscal-year").value = project.fiscal_year || "";
     document.getElementById("form-start-date").value = project.start_date || "";
     document.getElementById("form-end-date").value = project.end_date || "";
     document.getElementById("form-contract-signing-date").value = project.contract_signing_date || "";
@@ -1146,6 +1152,7 @@ async function openDetailModal(id) {
         document.getElementById("detail-contractor").innerText = project.contractor || "-";
         document.getElementById("detail-job-type").innerText = project.job_type || "-";
         document.getElementById("detail-budget").innerText = formatCurrency(project.budget);
+        document.getElementById("detail-fiscal-year").innerText = project.fiscal_year || "-";
         document.getElementById("detail-contract-signing-date").innerText = formatThaiDate(project.contract_signing_date);
         document.getElementById("detail-start-date").innerText = formatThaiDate(project.start_date);
         document.getElementById("detail-end-date").innerText = formatThaiDate(project.end_date);

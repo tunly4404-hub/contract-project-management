@@ -21,6 +21,7 @@ class Project(Base):
     name = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     budget = Column(Float, nullable=False)
+    fiscal_year = Column(Integer, nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     contract_signing_date = Column(Date, nullable=True)

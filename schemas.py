@@ -148,6 +148,7 @@ class ProjectBase(BaseModel):
     name: str
     owner: str
     budget: float
+    fiscal_year: Optional[int] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     contract_signing_date: Optional[date] = None
@@ -189,6 +190,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     owner: Optional[str] = None
     budget: Optional[float] = None
+    fiscal_year: Optional[int] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     contract_signing_date: Optional[date] = None
