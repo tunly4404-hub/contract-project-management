@@ -36,6 +36,22 @@ try:
     download_fonts_if_needed()
     pdfmetrics.registerFont(TTFont('NotoSansThai', REGULAR_FONT_PATH))
     pdfmetrics.registerFont(TTFont('NotoSansThai-Bold', BOLD_FONT_PATH))
+    
+    # Register font family mapping to prevent family determination errors
+    pdfmetrics.registerFontFamily(
+        'NotoSansThai',
+        normal='NotoSansThai',
+        bold='NotoSansThai-Bold',
+        italic='NotoSansThai',
+        boldItalic='NotoSansThai-Bold'
+    )
+    pdfmetrics.registerFontFamily(
+        'NotoSansThai-Bold',
+        normal='NotoSansThai-Bold',
+        bold='NotoSansThai-Bold',
+        italic='NotoSansThai-Bold',
+        boldItalic='NotoSansThai-Bold'
+    )
 except Exception as e:
     print(f"Warning: Failed to load Thai fonts: {e}")
 
