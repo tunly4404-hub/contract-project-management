@@ -45,13 +45,6 @@ try:
         italic='NotoSansThai',
         boldItalic='NotoSansThai-Bold'
     )
-    pdfmetrics.registerFontFamily(
-        'NotoSansThai-Bold',
-        normal='NotoSansThai-Bold',
-        bold='NotoSansThai-Bold',
-        italic='NotoSansThai-Bold',
-        boldItalic='NotoSansThai-Bold'
-    )
 except Exception as e:
     print(f"Warning: Failed to load Thai fonts: {e}")
 
@@ -70,7 +63,7 @@ THAI_NORMAL = ParagraphStyle(
 THAI_BOLD = ParagraphStyle(
     'ThaiBold',
     parent=THAI_NORMAL,
-    fontName='NotoSansThai-Bold',
+    fontName='NotoSansThai',
     textColor=colors.HexColor('#1e293b')
 )
 
@@ -89,7 +82,7 @@ THAI_RIGHT = ParagraphStyle(
 TITLE_STYLE = ParagraphStyle(
     'TitleStyle',
     parent=THAI_NORMAL,
-    fontName='NotoSansThai-Bold',
+    fontName='NotoSansThai',
     fontSize=18,
     leading=24,
     textColor=colors.HexColor('#1e293b')
@@ -106,7 +99,7 @@ SUBTITLE_STYLE = ParagraphStyle(
 HEADER_STYLE = ParagraphStyle(
     'HeaderStyle',
     parent=THAI_NORMAL,
-    fontName='NotoSansThai-Bold',
+    fontName='NotoSansThai',
     textColor=colors.white,
     alignment=1
 )
@@ -138,18 +131,18 @@ def export_projects_to_pdf(projects):
     story = []
     
     # Title
-    story.append(Paragraph("รายงานสรุปภาพรวมโครงการสัญญาและงบประมาณ", TITLE_STYLE))
+    story.append(Paragraph("<b>รายงานสรุปภาพรวมโครงการสัญญาและงบประมาณ</b>", TITLE_STYLE))
     story.append(Paragraph(f"พิมพ์ ณ วันที่: {format_thai_date(date.today())}", SUBTITLE_STYLE))
     story.append(Spacer(1, 15))
     
     # Table Headers
     headers = [
-        Paragraph("ลำดับ", HEADER_STYLE),
-        Paragraph("ชื่อโครงการ / หน่วยงานผู้ว่าจ้าง", HEADER_STYLE),
-        Paragraph("บริษัทที่รับผิดชอบ / ประเภทงาน", HEADER_STYLE),
-        Paragraph("ปีงบประมาณ", HEADER_STYLE),
-        Paragraph("งบประมาณ (บาท)", HEADER_STYLE),
-        Paragraph("สถานะ", HEADER_STYLE)
+        Paragraph("<b>ลำดับ</b>", HEADER_STYLE),
+        Paragraph("<b>ชื่อโครงการ / หน่วยงานผู้ว่าจ้าง</b>", HEADER_STYLE),
+        Paragraph("<b>บริษัทที่รับผิดชอบ / ประเภทงาน</b>", HEADER_STYLE),
+        Paragraph("<b>ปีงบประมาณ</b>", HEADER_STYLE),
+        Paragraph("<b>งบประมาณ (บาท)</b>", HEADER_STYLE),
+        Paragraph("<b>สถานะ</b>", HEADER_STYLE)
     ]
     
     data = [headers]
@@ -234,17 +227,17 @@ def export_purchase_orders_to_pdf(pos):
     
     story = []
     
-    story.append(Paragraph("รายงานสรุปรายการใบสั่งซื้อวัสดุ (Purchase Orders)", TITLE_STYLE))
+    story.append(Paragraph("<b>รายงานสรุปรายการใบสั่งซื้อวัสดุ (Purchase Orders)</b>", TITLE_STYLE))
     story.append(Paragraph(f"พิมพ์ ณ วันที่: {format_thai_date(date.today())}", SUBTITLE_STYLE))
     story.append(Spacer(1, 15))
     
     headers = [
-        Paragraph("ลำดับ", HEADER_STYLE),
-        Paragraph("เลขที่ PO / ชื่อโครงการอ้างอิง", HEADER_STYLE),
-        Paragraph("รายการวัสดุ / ผู้จัดซื้อ", HEADER_STYLE),
-        Paragraph("งบประมาณ (บาท)", HEADER_STYLE),
-        Paragraph("กำหนดวันส่งมอบ", HEADER_STYLE),
-        Paragraph("สถานะ", HEADER_STYLE)
+        Paragraph("<b>ลำดับ</b>", HEADER_STYLE),
+        Paragraph("<b>เลขที่ PO / ชื่อโครงการอ้างอิง</b>", HEADER_STYLE),
+        Paragraph("<b>รายการวัสดุ / ผู้จัดซื้อ</b>", HEADER_STYLE),
+        Paragraph("<b>งบประมาณ (บาท)</b>", HEADER_STYLE),
+        Paragraph("<b>กำหนดวันส่งมอบ</b>", HEADER_STYLE),
+        Paragraph("<b>สถานะ</b>", HEADER_STYLE)
     ]
     
     data = [headers]
@@ -325,7 +318,7 @@ def export_project_detail_to_pdf(project):
     story = []
     
     # Document Header
-    story.append(Paragraph(f"รายงานรายละเอียดโครงการ: {project.name}", TITLE_STYLE))
+    story.append(Paragraph(f"<b>รายงานรายละเอียดโครงการ: {project.name}</b>", TITLE_STYLE))
     story.append(Paragraph(f"พิมพ์ ณ วันที่: {format_thai_date(date.today())} | ออกโดยระบบบริหารจัดการสัญญาโครงการ", SUBTITLE_STYLE))
     story.append(Spacer(1, 15))
     
@@ -370,12 +363,12 @@ def export_project_detail_to_pdf(project):
     story.append(Spacer(1, 5))
     
     deliv_headers = [
-        Paragraph("งวดที่ / รายการส่งมอบพัสดุ", HEADER_STYLE),
-        Paragraph("งบประมาณ", HEADER_STYLE),
-        Paragraph("เลขเอกสารใบส่งของ", HEADER_STYLE),
-        Paragraph("กำหนดวันส่งมอบ", HEADER_STYLE),
-        Paragraph("สถานะดำเนินการ", HEADER_STYLE)
-    ]
+        Paragraph("<b>งวดที่ / รายการส่งมอบพัสดุ</b>", HEADER_STYLE),
+        Paragraph("<b>งบประมาณ</b>", HEADER_STYLE),
+        Paragraph("<b>เลขเอกสารใบส่งของ</b>", HEADER_STYLE),
+        Paragraph("<b>กำหนดวันส่งมอบ</b>", HEADER_STYLE),
+        Paragraph("<b>สถานะดำเนินการ</b>", HEADER_STYLE)
+     ]
     
     deliv_data = [deliv_headers]
     total_deliv_budget = 0.0
@@ -438,12 +431,12 @@ def export_project_detail_to_pdf(project):
     story.append(Spacer(1, 5))
     
     po_headers = [
-        Paragraph("เลขที่ PO", HEADER_STYLE),
-        Paragraph("รายการวัสดุ", HEADER_STYLE),
-        Paragraph("งบประมาณ PO", HEADER_STYLE),
-        Paragraph("ผู้จัดซื้อ / คู่ค้า", HEADER_STYLE),
-        Paragraph("กำหนดส่งของ", HEADER_STYLE),
-        Paragraph("สถานะจัดส่ง", HEADER_STYLE)
+        Paragraph("<b>เลขที่ PO</b>", HEADER_STYLE),
+        Paragraph("<b>รายการวัสดุ</b>", HEADER_STYLE),
+        Paragraph("<b>งบประมาณ PO</b>", HEADER_STYLE),
+        Paragraph("<b>ผู้จัดซื้อ / คู่ค้า</b>", HEADER_STYLE),
+        Paragraph("<b>กำหนดส่งของ</b>", HEADER_STYLE),
+        Paragraph("<b>สถานะจัดส่ง</b>", HEADER_STYLE)
     ]
     
     po_data = [po_headers]
@@ -505,7 +498,7 @@ def export_po_detail_to_pdf(po):
     
     story = []
     
-    story.append(Paragraph(f"รายงานใบสั่งซื้อวัสดุ: {po.po_number}", TITLE_STYLE))
+    story.append(Paragraph(f"<b>รายงานใบสั่งซื้อวัสดุ: {po.po_number}</b>", TITLE_STYLE))
     story.append(Paragraph(f"พิมพ์ ณ วันที่: {format_thai_date(date.today())} | ออกโดยระบบบริหารจัดการสัญญาโครงการ", SUBTITLE_STYLE))
     story.append(Spacer(1, 15))
     
