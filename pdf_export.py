@@ -34,31 +34,17 @@ def download_fonts_if_needed():
 
 try:
     download_fonts_if_needed()
-    pdfmetrics.registerFont(TTFont('NotoSansThai', REGULAR_FONT_PATH))
-    pdfmetrics.registerFont(TTFont('NotoSansThai-Bold', BOLD_FONT_PATH))
+    pdfmetrics.registerFont(TTFont('notosansthai', REGULAR_FONT_PATH))
+    pdfmetrics.registerFont(TTFont('notosansthai-bold', BOLD_FONT_PATH))
     
-    # Register font family mapping in both original case and lowercase
+    # Register font family mapping using lowercase names
     # ReportLab uses lowercase names internally for family lookup.
     pdfmetrics.registerFontFamily(
-        'NotoSansThai',
-        normal='NotoSansThai',
-        bold='NotoSansThai-Bold',
-        italic='NotoSansThai',
-        boldItalic='NotoSansThai-Bold'
-    )
-    pdfmetrics.registerFontFamily(
         'notosansthai',
-        normal='NotoSansThai',
-        bold='NotoSansThai-Bold',
-        italic='NotoSansThai',
-        boldItalic='NotoSansThai-Bold'
-    )
-    pdfmetrics.registerFontFamily(
-        'notosansthai-bold',
-        normal='NotoSansThai-Bold',
-        bold='NotoSansThai-Bold',
-        italic='NotoSansThai-Bold',
-        boldItalic='NotoSansThai-Bold'
+        normal='notosansthai',
+        bold='notosansthai-bold',
+        italic='notosansthai',
+        boldItalic='notosansthai-bold'
     )
 except Exception as e:
     print(f"Warning: Failed to load Thai fonts: {e}")
@@ -69,7 +55,7 @@ styles = getSampleStyleSheet()
 THAI_NORMAL = ParagraphStyle(
     'ThaiNormal',
     parent=styles['Normal'],
-    fontName='NotoSansThai',
+    fontName='notosansthai',
     fontSize=9,
     leading=13,
     textColor=colors.HexColor('#334155')
@@ -78,7 +64,7 @@ THAI_NORMAL = ParagraphStyle(
 THAI_BOLD = ParagraphStyle(
     'ThaiBold',
     parent=THAI_NORMAL,
-    fontName='NotoSansThai',
+    fontName='notosansthai',
     textColor=colors.HexColor('#1e293b')
 )
 
@@ -97,7 +83,7 @@ THAI_RIGHT = ParagraphStyle(
 TITLE_STYLE = ParagraphStyle(
     'TitleStyle',
     parent=THAI_NORMAL,
-    fontName='NotoSansThai',
+    fontName='notosansthai',
     fontSize=18,
     leading=24,
     textColor=colors.HexColor('#1e293b')
@@ -114,7 +100,7 @@ SUBTITLE_STYLE = ParagraphStyle(
 HEADER_STYLE = ParagraphStyle(
     'HeaderStyle',
     parent=THAI_NORMAL,
-    fontName='NotoSansThai',
+    fontName='notosansthai',
     textColor=colors.white,
     alignment=1
 )
