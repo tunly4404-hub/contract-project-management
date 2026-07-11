@@ -663,6 +663,7 @@ function switchTab(tabName) {
         tabUsersBtn.className = "border-transparent text-indigo-600 hover:text-indigo-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-semibold tab-active";
         
         fetchUsers();
+        fetchDiskUsage();
     } else if (tabName === "audit-logs") {
         viewAuditLogs.classList.remove("hidden");
         tabAuditLogsBtn.className = "border-transparent text-indigo-600 hover:text-indigo-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-semibold tab-active";
@@ -3120,6 +3121,66 @@ async function submitEditDeliverable(event) {
         alert("ไม่สามารถบันทึกการแก้ไขได้: " + error.message);
     } finally {
         hideLoading();
+    }
+}
+
+// ====================================================
+// DISK STORAGE USAGE (ADMIN ONLY)
+// ====================================================
+async function fetchDiskUsage() {
+    try {
+        const response = await secureFetch("/api/admin/disk-usage");
+        if (!response.ok) throw new Error("Failed to load disk usage");
+        
+        const data = await response.json();
+        
+        const total = data.total_bytes;
+        const used = data.used_bytes;
+        const free = data.free_bytes;
+        const percentage = data.percentage_used;
+        
+        const formatBytes = (bytes) => {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        };
+        
+        const barElement = document.getElementById("disk-usage-bar");
+        const textElement = document.getElementById("disk-usage-text");
+        const freeElement = document.getElementById("disk-free-text");
+        const badgeElement = document.getElementById("disk-status-badge");
+        
+        if (barElement) {
+            barElement.style.width = `${percentage}%`;
+            
+            barElement.classList.remove("bg-emerald-500", "bg-amber-500", "bg-rose-500", "animate-pulse");
+            badgeElement.className = "px-2.5 py-0.5 rounded-full text-xs font-bold";
+            
+            if (percentage < 75) {
+                barElement.classList.add("bg-emerald-500");
+                badgeElement.innerText = "ปกติ";
+                badgeElement.classList.add("bg-emerald-100", "text-emerald-800");
+            } else if (percentage < 90) {
+                barElement.classList.add("bg-amber-500");
+                badgeElement.innerText = "เริ่มหนาแน่น";
+                badgeElement.classList.add("bg-amber-100", "text-amber-800");
+            } else {
+                barElement.classList.add("bg-rose-500", "animate-pulse");
+                badgeElement.innerText = "ใกล้เต็ม - ควรขยาย!";
+                badgeElement.classList.add("bg-rose-100", "text-rose-800");
+            }
+        }
+        
+        if (textElement) {
+            textElement.innerText = `ใช้งานแล้ว: ${formatBytes(used)} / ${formatBytes(total)} (${percentage}%)`;
+        }
+        if (freeElement) {
+            freeElement.innerText = `คงเหลือ: ${formatBytes(free)}`;
+        }
+    } catch (error) {
+        console.error("Error loading disk usage:", error);
     }
 }
 

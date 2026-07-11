@@ -261,6 +261,22 @@ def reset_user_password(user_id: int, payload: schemas.UserResetPassword, curren
     db.commit()
     return {"detail": f"เปลี่ยนรหัสผ่านสำหรับผู้ใช้งาน {db_user.username} เรียบร้อยแล้ว"}
 
+@app.get("/api/admin/disk-usage")
+def get_disk_usage(current_admin = Depends(check_admin_role)):
+    import shutil
+    import os
+    persistent_dir = "/data" if os.path.exists("/data") and os.path.isdir("/data") else "."
+    try:
+        total, used, free = shutil.disk_usage(persistent_dir)
+        return {
+            "total_bytes": total,
+            "used_bytes": used,
+            "free_bytes": free,
+            "percentage_used": round((used / total) * 100, 2)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read disk usage: {str(e)}")
+
 @app.get("/api/audit-logs", response_model=List[schemas.AuditLogResponse])
 def get_audit_logs(
     username: str = Depends(get_current_user_username),
