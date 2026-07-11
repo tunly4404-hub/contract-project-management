@@ -27,7 +27,7 @@ def create_user(db: Session, user: schemas.UserCreate):
         username=user.username,
         fullname=user.fullname,
         role=role_val,
-        is_active=True,
+        is_active=False, # Must be approved by admin first
         hashed_password=hashed_pwd
     )
     db.add(db_user)

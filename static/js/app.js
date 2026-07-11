@@ -2468,7 +2468,7 @@ function renderUsersTable(users) {
             
         const statusBadge = u.is_active 
             ? `<span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold">ปกติ</span>`
-            : `<span class="bg-slate-100 text-slate-500 text-xs px-2.5 py-0.5 rounded-full font-semibold">ถูกระงับสิทธิ์</span>`;
+            : `<span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold animate-pulse">รออนุมัติ / ระงับ</span>`;
             
         const row = document.createElement("tr");
         row.className = "hover:bg-slate-50 transition duration-150 text-xs";

@@ -154,7 +154,7 @@ def get_current_user_username(token: str = Depends(oauth2_scheme), db: Session =
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="บัญชีผู้ใช้งานนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+            detail="บัญชีผู้ใช้งานนี้ยังไม่ได้รับการอนุมัติจากผู้ดูแลระบบ (Admin) หรือถูกระงับสิทธิ์เข้าใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่ออนุมัติสิทธิ์เข้าใช้งาน",
         )
     return user.username
 
@@ -202,7 +202,10 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="บัญชีผู้ใช้งานนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ")
+        raise HTTPException(
+            status_code=400, 
+            detail="บัญชีผู้ใช้งานนี้ยังไม่ได้รับการอนุมัติจากผู้ดูแลระบบ (Admin) หรือถูกระงับสิทธิ์เข้าใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่ออนุมัติสิทธิ์เข้าใช้งาน"
+        )
         
     access_token = create_access_token(data={"sub": user.username})
     return {
