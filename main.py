@@ -108,6 +108,66 @@ os.makedirs(UPLOAD_PO_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DELIVERY_DIR, exist_ok=True)
 os.makedirs("./static", exist_ok=True)
 
+# Supabase Storage configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "project-attachments")
+
+def upload_to_supabase_if_configured(file_content: bytes, filename: str, subfolder: str, content_type: str) -> Optional[str]:
+    """
+    Uploads file content to Supabase Storage if configured.
+    Returns the public URL if successful, or None if Supabase is not configured.
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+        
+    import requests
+    # Clean up filename for url
+    clean_filename = "".join(c for c in filename if c.isalnum() or c in "._-").strip()
+    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    path = f"{subfolder}/{timestamp}_{clean_filename}"
+    
+    url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
+    headers = {
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": content_type
+    }
+    
+    try:
+        response = requests.post(url, data=file_content, headers=headers)
+        if response.status_code == 200:
+            # Construct public URL
+            public_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{SUPABASE_BUCKET}/{path}"
+            return public_url
+        else:
+            print(f"Supabase upload error ({response.status_code}): {response.text}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload file to Supabase Storage: {response.text}")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        print(f"Supabase upload connection error: {e}")
+        raise HTTPException(status_code=500, detail=f"Connection error to Supabase Storage: {str(e)}")
+
+def delete_from_supabase_if_configured(public_url: str):
+    if not SUPABASE_URL or not SUPABASE_KEY or not public_url:
+        return
+    if "supabase.co/storage/v1/object/public" not in public_url:
+        return
+        
+    import requests
+    # Extract path from public URL
+    part = f"/storage/v1/object/public/{SUPABASE_BUCKET}/"
+    if part in public_url:
+        path = public_url.split(part)[1]
+        url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
+        headers = {
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        }
+        try:
+            requests.delete(url, headers=headers)
+        except Exception as e:
+            print(f"Failed to delete from Supabase storage: {e}")
+
 app = FastAPI(title="ระบบบริหารจัดการสัญญาและโครงการ (Project & Contract Management)")
 
 # JWT configuration
@@ -453,17 +513,27 @@ def upload_po_file(po_id: int, file: UploadFile = File(...), username: str = Dep
         
     validate_uploaded_file(file)
     
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_filename = f"po_{timestamp}_{file.filename}"
-    file_path = os.path.join(UPLOAD_PO_DIR, safe_filename)
-    
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = file.file.read()
+        file.file.seek(0)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    db_po.po_file_path = f"/uploads/pos/{safe_filename}"
+    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "pos", file.content_type)
+    
+    if supabase_url:
+        db_po.po_file_path = supabase_url
+    else:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_filename = f"po_{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_PO_DIR, safe_filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        db_po.po_file_path = f"/uploads/pos/{safe_filename}"
+        
     db_po.po_file_filename = file.filename
     db_po.updated_by = username
     db_po.updated_at = datetime.utcnow()
@@ -479,6 +549,8 @@ def delete_po_file(po_id: int, username: str = Depends(get_current_user_username
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
     if db_po.po_file_path:
+        delete_from_supabase_if_configured(db_po.po_file_path)
+        
         filename = os.path.basename(db_po.po_file_path)
         file_path = os.path.join(UPLOAD_PO_DIR, filename)
         if os.path.exists(file_path):
@@ -504,17 +576,27 @@ def upload_quotation_file(po_id: int, file: UploadFile = File(...), username: st
         
     validate_uploaded_file(file)
     
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_filename = f"quot_{timestamp}_{file.filename}"
-    file_path = os.path.join(UPLOAD_PO_DIR, safe_filename)
-    
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = file.file.read()
+        file.file.seek(0)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    db_po.quotation_file_path = f"/uploads/pos/{safe_filename}"
+    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "pos", file.content_type)
+    
+    if supabase_url:
+        db_po.quotation_file_path = supabase_url
+    else:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_filename = f"quot_{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_PO_DIR, safe_filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        db_po.quotation_file_path = f"/uploads/pos/{safe_filename}"
+        
     db_po.quotation_file_filename = file.filename
     db_po.updated_by = username
     db_po.updated_at = datetime.utcnow()
@@ -530,6 +612,8 @@ def delete_quotation_file(po_id: int, username: str = Depends(get_current_user_u
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
     if db_po.quotation_file_path:
+        delete_from_supabase_if_configured(db_po.quotation_file_path)
+        
         filename = os.path.basename(db_po.quotation_file_path)
         file_path = os.path.join(UPLOAD_PO_DIR, filename)
         if os.path.exists(file_path):
@@ -557,17 +641,27 @@ def upload_delivery_file(po_id: int, file: UploadFile = File(...), username: str
         
     validate_uploaded_file(file)
     
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_filename = f"delivery_{timestamp}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DELIVERY_DIR, safe_filename)
-    
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = file.file.read()
+        file.file.seek(0)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    db_po.delivery_file_path = f"/uploads/deliveries/{safe_filename}"
+    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "deliveries", file.content_type)
+    
+    if supabase_url:
+        db_po.delivery_file_path = supabase_url
+    else:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_filename = f"delivery_{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DELIVERY_DIR, safe_filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        db_po.delivery_file_path = f"/uploads/deliveries/{safe_filename}"
+        
     db_po.delivery_file_filename = file.filename
     db_po.updated_by = username
     db_po.updated_at = datetime.utcnow()
@@ -583,6 +677,8 @@ def delete_delivery_file(po_id: int, username: str = Depends(get_current_user_us
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
     if db_po.delivery_file_path:
+        delete_from_supabase_if_configured(db_po.delivery_file_path)
+        
         filename = os.path.basename(db_po.delivery_file_path)
         file_path = os.path.join(UPLOAD_DELIVERY_DIR, filename)
         if os.path.exists(file_path):
@@ -613,19 +709,29 @@ def upload_document(
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_filename = f"{timestamp}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DIR, safe_filename)
-    
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = file.file.read()
+        file.file.seek(0)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
+        
+    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "documents", file.content_type)
+    
+    if supabase_url:
+        url_path = supabase_url
+    else:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_filename = f"{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, safe_filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        url_path = f"/uploads/{safe_filename}"
         
     _, ext = os.path.splitext(file.filename)
     file_type = ext.replace(".", "").upper() if ext else "UNKNOWN"
-    url_path = f"/uploads/{safe_filename}"
     
     doc_schema = schemas.DocumentBase(
         filename=file.filename,
@@ -647,6 +753,8 @@ def delete_document(document_id: int, username: str = Depends(get_current_user_u
     if not db_doc:
         raise HTTPException(status_code=404, detail="Document not found")
         
+    delete_from_supabase_if_configured(db_doc.url_path)
+    
     filename = os.path.basename(db_doc.url_path)
     file_path = os.path.join(UPLOAD_DIR, filename)
     if os.path.exists(file_path):
@@ -684,17 +792,27 @@ def upload_guarantee_receipt(
         
     validate_uploaded_file(file)
     
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_filename = f"receipt_{timestamp}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DIR, safe_filename)
-    
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = file.file.read()
+        file.file.seek(0)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    db_project.guarantee_receipt_path = f"/uploads/{safe_filename}"
+    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "guarantees", file.content_type)
+    
+    if supabase_url:
+        db_project.guarantee_receipt_path = supabase_url
+    else:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_filename = f"receipt_{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, safe_filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        db_project.guarantee_receipt_path = f"/uploads/{safe_filename}"
+        
     db_project.guarantee_receipt_filename = file.filename
     db_project.updated_by = username
     db_project.updated_at = datetime.utcnow()
@@ -710,6 +828,8 @@ def delete_guarantee_receipt(project_id: int, username: str = Depends(get_curren
         raise HTTPException(status_code=404, detail="Project not found")
         
     if db_project.guarantee_receipt_path:
+        delete_from_supabase_if_configured(db_project.guarantee_receipt_path)
+        
         filename = os.path.basename(db_project.guarantee_receipt_path)
         file_path = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(file_path):
@@ -742,17 +862,27 @@ def upload_guarantee_document(
         
     validate_uploaded_file(file)
     
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    safe_filename = f"guar_doc_{timestamp}_{file.filename}"
-    file_path = os.path.join(UPLOAD_DIR, safe_filename)
-    
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        file_content = file.file.read()
+        file.file.seek(0)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    db_project.guarantee_document_path = f"/uploads/{safe_filename}"
+    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "guarantees", file.content_type)
+    
+    if supabase_url:
+        db_project.guarantee_document_path = supabase_url
+    else:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_filename = f"guar_doc_{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, safe_filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        db_project.guarantee_document_path = f"/uploads/{safe_filename}"
+        
     db_project.guarantee_document_filename = file.filename
     db_project.updated_by = username
     db_project.updated_at = datetime.utcnow()
@@ -768,6 +898,8 @@ def delete_guarantee_document(project_id: int, username: str = Depends(get_curre
         raise HTTPException(status_code=404, detail="Project not found")
         
     if db_project.guarantee_document_path:
+        delete_from_supabase_if_configured(db_project.guarantee_document_path)
+        
         filename = os.path.basename(db_project.guarantee_document_path)
         file_path = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(file_path):
