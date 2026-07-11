@@ -76,3 +76,133 @@ body {
     background-color: #6366f1; /* indigo-500 */
     border-radius: 9999px;
 }
+
+/* ==========================================
+   DARK THEME OVERRIDES (Premium Slate-Dark)
+   ========================================== */
+.dark body {
+    background-color: #0b0f19 !important; /* Extremely premium dark blue-slate */
+    color: #cbd5e1 !important;
+}
+
+/* Base backgrounds */
+.dark .bg-white {
+    background-color: #16222f !important; /* Soft card/panel dark color */
+}
+
+.dark .bg-slate-50 {
+    background-color: #0b0f19 !important;
+}
+
+.dark .bg-slate-100 {
+    background-color: #1a2736 !important;
+}
+
+.dark thead.bg-slate-50 {
+    background-color: #0b0f19 !important;
+}
+
+/* Text overrides */
+.dark .text-slate-900, 
+.dark .text-slate-800 {
+    color: #f8fafc !important; /* Clear off-white */
+}
+
+.dark .text-slate-700 {
+    color: #e2e8f0 !important;
+}
+
+.dark .text-slate-600, 
+.dark .text-slate-500 {
+    color: #94a3b8 !important; /* Muted text */
+}
+
+.dark .text-slate-400 {
+    color: #64748b !important;
+}
+
+/* Border & Dividers overrides */
+.dark .border-slate-100, 
+.dark .border-slate-150, 
+.dark .border-slate-200 {
+    border-color: #24354a !important; /* Slate border color */
+}
+
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #24354a !important;
+}
+
+/* Inputs, Select, Textareas */
+.dark input, 
+.dark select, 
+.dark textarea {
+    background-color: #1a2736 !important;
+    color: #f8fafc !important;
+    border-color: #24354a !important;
+}
+
+.dark input::placeholder {
+    color: #64748b !important;
+}
+
+.dark select option {
+    background-color: #16222f !important;
+    color: #f8fafc !important;
+}
+
+/* Hover effects & custom tables */
+.dark tr.hover\:bg-slate-50\/50:hover {
+    background-color: rgba(36, 53, 74, 0.4) !important;
+}
+
+.dark .hover\:bg-slate-50:hover {
+    background-color: rgba(36, 53, 74, 0.4) !important;
+}
+
+/* Glassmorphism panel for dark theme */
+.dark .glass-panel {
+    background: rgba(22, 34, 47, 0.85) !important;
+    border-color: rgba(36, 53, 74, 0.5) !important;
+}
+
+/* Badge corrections in dark mode */
+.dark .bg-emerald-50 {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+    color: #34d399 !important;
+}
+
+.dark .bg-rose-50 {
+    background-color: rgba(244, 63, 94, 0.15) !important;
+    color: #fb7185 !important;
+}
+
+.dark .bg-indigo-50 {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+    color: #818cf8 !important;
+}
+
+.dark .bg-amber-50 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+    color: #fbbf24 !important;
+}
+
+.dark .bg-rose-100 {
+    background-color: rgba(244, 63, 94, 0.25) !important;
+    color: #fb7185 !important;
+}
+
+.dark .bg-indigo-100 {
+    background-color: rgba(99, 102, 241, 0.25) !important;
+    color: #818cf8 !important;
+}
+
+/* Scrollbars in dark mode */
+.dark ::-webkit-scrollbar-thumb {
+    background: #24354a;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #334e6c;
+}
+

@@ -18,7 +18,7 @@
         }
     </script>
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/css/custom.css">
+    <link rel="stylesheet" href="/static/css/custom.css?v=1.1.2">
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
 
@@ -29,7 +29,18 @@
     </div>
 
     <!-- AUTHENTICATION PANELS OVERLAYS (V5) -->
-    <div id="auth-container" class="min-h-screen flex items-center justify-center bg-gradient-to-tr from-indigo-100 via-slate-50 to-blue-50 p-4">
+    <div id="auth-container" class="relative min-h-screen flex items-center justify-center bg-gradient-to-tr from-indigo-100 via-slate-50 to-blue-50 p-4">
+        <!-- Floating Theme Toggle for Auth Page -->
+        <div class="absolute top-4 right-4">
+            <button onclick="toggleTheme()" class="p-2.5 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition duration-150 flex items-center justify-center" title="เปลี่ยนธีม สว่าง/มืด">
+                <svg class="h-4.5 w-4.5 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+                <svg class="h-4.5 w-4.5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.364 17.636l-.707.707M17.636 17.636l.707-.707M6.364 6.364l.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+        </div>
         <!-- Login Card -->
         <div id="login-card" class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-8 space-y-6 animate-fade-in">
             <div class="text-center">
@@ -139,6 +150,17 @@
                             </div>
                             <span id="user-fullname-display" class="font-semibold text-slate-800">ผู้ใช้งาน</span>
                         </div>
+                        <!-- Theme Toggle Button -->
+                        <button onclick="toggleTheme()" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl transition duration-150 flex items-center justify-center" id="theme-toggle-btn" title="เปลี่ยนธีม สว่าง/มืด">
+                            <!-- Sun Icon (shown in dark mode) -->
+                            <svg id="theme-icon-sun" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.364 17.636l-.707.707M17.636 17.636l.707-.707M6.364 6.364l.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <!-- Moon Icon (shown in light mode) -->
+                            <svg id="theme-icon-moon" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                            </svg>
+                        </button>
                         <button onclick="handleLogout()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition duration-150 flex items-center gap-1">
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -1227,6 +1249,6 @@
     </div>
 
     <!-- JS Core Logic App -->
-    <script src="/static/js/app.js?v=1.1.1"></script>
+    <script src="/static/js/app.js?v=1.1.2"></script>
 </body>
 </html>

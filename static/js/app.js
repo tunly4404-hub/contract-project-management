@@ -1,3 +1,38 @@
+// Theme Manager
+function initTheme() {
+    const savedTheme = localStorage.getItem("theme") || "light";
+    if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+        updateThemeToggleIcons(true);
+    } else {
+        document.documentElement.classList.remove("dark");
+        updateThemeToggleIcons(false);
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.documentElement.classList.toggle("dark");
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+    updateThemeToggleIcons(isDark);
+}
+
+function updateThemeToggleIcons(isDark) {
+    const sunIcon = document.getElementById("theme-icon-sun");
+    const moonIcon = document.getElementById("theme-icon-moon");
+    if (sunIcon && moonIcon) {
+        if (isDark) {
+            sunIcon.classList.remove("hidden");
+            moonIcon.classList.add("hidden");
+        } else {
+            sunIcon.classList.add("hidden");
+            moonIcon.classList.remove("hidden");
+        }
+    }
+}
+
+// Initialize theme immediately to prevent white flashing
+initTheme();
+
 // Global Variables
 let projectsCache = [];
 let posCache = [];
@@ -539,6 +574,9 @@ function toggleRightAssignmentPercentageInput() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // Sync theme toggle icons state
+    updateThemeToggleIcons(document.documentElement.classList.contains("dark"));
+    
     const token = getToken();
     if (token) {
         showLoading("กำลังตรวจสอบเซสชันและปลุกเซิร์ฟเวอร์คลาวด์ กรุณารอประมาณ 1 นาที...");
