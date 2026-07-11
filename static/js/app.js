@@ -1788,6 +1788,7 @@ function filterPOs() {
         
         const matchesSearch = po.po_number.toLowerCase().includes(searchQuery) ||
                              projName.toLowerCase().includes(searchQuery) ||
+                             (po.owner && po.owner.toLowerCase().includes(searchQuery)) ||
                              po.contractor.toLowerCase().includes(searchQuery) ||
                              po.material_type.toLowerCase().includes(searchQuery);
                              
