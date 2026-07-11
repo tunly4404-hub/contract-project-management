@@ -2915,7 +2915,14 @@ async function downloadExcelFile(url, filename) {
     showLoading();
     try {
         const response = await secureFetch(url);
-        if (!response.ok) throw new Error("Failed to download file");
+        if (!response.ok) {
+            let errMsg = "Failed to download file";
+            try {
+                const errJson = await response.json();
+                if (errJson && errJson.detail) errMsg = errJson.detail;
+            } catch (e) {}
+            throw new Error(errMsg);
+        }
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
