@@ -122,12 +122,16 @@ def upload_to_supabase_if_configured(file_content: bytes, filename: str, subfold
         return None
         
     import requests
+    import urllib.parse
     # Clean up filename for url
     clean_filename = "".join(c for c in filename if c.isalnum() or c in "._-").strip()
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     path = f"{subfolder}/{timestamp}_{clean_filename}"
     
-    url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
+    # URL-encode the path to support non-ASCII characters like Thai letters and spaces
+    encoded_path = urllib.parse.quote(path)
+    
+    url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{encoded_path}"
     headers = {
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": content_type
@@ -137,7 +141,7 @@ def upload_to_supabase_if_configured(file_content: bytes, filename: str, subfold
         response = requests.post(url, data=file_content, headers=headers)
         if response.status_code == 200:
             # Construct public URL
-            public_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{SUPABASE_BUCKET}/{path}"
+            public_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{SUPABASE_BUCKET}/{encoded_path}"
             return public_url
         else:
             print(f"Supabase upload error ({response.status_code}): {response.text}")
