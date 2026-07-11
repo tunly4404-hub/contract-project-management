@@ -17,6 +17,8 @@
             }
         }
     </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="/static/css/custom.css?v=1.1.2">
 </head>
@@ -248,6 +250,59 @@
                                 </svg>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section (Budget, Contractor, Status) -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Chart 1: Contractor Budget -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-3">
+                        <h3 class="font-bold text-slate-900 text-sm">งบประมาณโครงการแยกตามผู้รับผิดชอบ (บาท)</h3>
+                        <div class="relative h-[220px] w-full">
+                            <canvas id="chart-contractor-budget"></canvas>
+                        </div>
+                    </div>
+                    <!-- Chart 2: Status Breakdown -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-3">
+                        <h3 class="font-bold text-slate-900 text-sm">สัดส่วนสถานะโครงการ</h3>
+                        <div class="relative h-[220px] w-full flex items-center justify-center">
+                            <canvas id="chart-project-status" class="max-h-full max-w-full"></canvas>
+                        </div>
+                    </div>
+                    <!-- Chart 3: Client Breakdown -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-3">
+                        <h3 class="font-bold text-slate-900 text-sm">งบประมาณโครงการแยกตามหน่วยงาน (บาท)</h3>
+                        <div class="relative h-[220px] w-full">
+                            <canvas id="chart-owner-budget"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Matrix Table -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">สรุปงบประมาณแยกตามผู้รับผิดชอบ และ เจ้าของโครงการ / หน่วยงาน</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">สรุปแยกกลุ่มตามบริษัท/ห้างหุ้นส่วนผู้รับผิดชอบและหน่วยงานที่ว่าจ้างอย่างละเอียด</p>
+                        </div>
+                        <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full">เรียลไทม์</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse whitespace-nowrap">
+                            <thead>
+                                <tr class="bg-slate-50/75 dark:bg-slate-800 text-slate-500 font-bold text-xs border-b border-slate-200">
+                                    <th class="px-6 py-3 rounded-l-xl">บริษัทที่รับผิดชอบ</th>
+                                    <th class="px-6 py-3">เจ้าของโครงการ / หน่วยงาน</th>
+                                    <th class="px-6 py-3 text-right">งบประมาณรวม</th>
+                                    <th class="px-6 py-3 text-center">กำลังดำเนินการ / ล่าช้า</th>
+                                    <th class="px-6 py-3 text-center">ส่งมอบงานแล้ว</th>
+                                    <th class="px-6 py-3 text-center rounded-r-xl">จำนวนโครงการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="matrix-table-body" class="divide-y divide-slate-100 text-xs">
+                                <!-- Grouped rows rendered dynamically -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -790,6 +845,39 @@
                         </div>
                     </div>
 
+                    <!-- Mini Progress Breakdown Summary -->
+                    <div class="bg-white rounded-xl p-4 border border-slate-150 space-y-4 text-xs shadow-sm">
+                        <h4 class="font-bold text-xs text-indigo-600 uppercase tracking-wider border-b border-slate-100 pb-2">ความคืบหน้าของโครงการ</h4>
+                        
+                        <!-- Deliverables Progress Bar -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between font-semibold text-slate-800">
+                                <span>งานส่งมอบที่เสร็จสิ้น:</span>
+                                <span id="detail-breakdown-deliv-text">0/0 รายการ (0%)</span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2">
+                                <div id="detail-breakdown-deliv-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Purchase Orders Progress Bar -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between font-semibold text-slate-800">
+                                <span>ใบสั่งซื้อ PO ที่ส่งของแล้ว:</span>
+                                <span id="detail-breakdown-po-text">0/0 รายการ (0%)</span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2">
+                                <div id="detail-breakdown-po-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Budget Summary Breakdown -->
+                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 font-medium text-slate-600">
+                            <span>งบสั่งซื้อ PO ทั้งหมด:</span>
+                            <span id="detail-breakdown-po-budget" class="text-right text-slate-800 font-bold">฿0.00</span>
+                        </div>
+                    </div>
+
                     <!-- Guarantee Document (LG/Slip) file box -->
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-150 space-y-3 text-xs">
                         <h4 class="font-bold text-sm text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">เอกสารหลักฐานการค้ำประกัน (หนังสือ LG / สลิปโอน)</h4>
@@ -1249,6 +1337,6 @@
     </div>
 
     <!-- JS Core Logic App -->
-    <script src="/static/js/app.js?v=1.1.2"></script>
+    <script src="/static/js/app.js?v=1.1.3"></script>
 </body>
 </html>

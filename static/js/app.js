@@ -39,6 +39,9 @@ let posCache = [];
 let currentProjectId = null;
 let currentPOId = null;
 let currentProjectRightAssignment = "ไม่ได้โอนสิทธิ์";
+let contractorBudgetChartInstance = null;
+let projectStatusChartInstance = null;
+let ownerBudgetChartInstance = null;
 
 // ----------------------------------------------------
 // AUTHENTICATION FLOWS & JWT SECURITY (V5)
@@ -827,6 +830,7 @@ async function fetchProjects() {
         if (!response.ok) throw new Error("Failed to fetch projects");
         projectsCache = await response.json();
         renderProjectsTable(projectsCache);
+        renderDashboardVisuals();
     } catch (error) {
         console.error("Error fetching projects:", error);
     }
@@ -1248,6 +1252,7 @@ async function openDetailModal(id) {
         renderDocumentsList(project.documents);
         setupDeliverablesDynamicFormAndHeader(project);
         renderDeliverablesTable(project.deliverables);
+        populateProjectDetailsBreakdown(project);
         
         document.getElementById("detail-modal").classList.remove("hidden");
     } catch (error) {
@@ -2595,3 +2600,245 @@ function formatTimestamp(timestampString) {
         second: "2-digit"
     });
 }
+
+// ====================================================
+// VISUAL GRAPHICAL DASHBOARD & PROGRESS BREAKDOWN
+// ====================================================
+function renderDashboardVisuals() {
+    // 1. Group data for Summary Matrix Table and Charts
+    const matrix = {};
+    const statusCounts = {
+        "กำลังดำเนินการ": 0,
+        "ล่าช้า": 0,
+        "ส่งมอบแล้ว": 0
+    };
+    const contractorBudgets = {};
+    const ownerBudgets = {};
+    
+    projectsCache.forEach(project => {
+        const contractor = project.contractor || "ไม่ระบุผู้รับผิดชอบ";
+        const owner = project.owner || "ไม่ระบุหน่วยงาน";
+        const budget = project.budget || 0;
+        const status = project.status || "กำลังดำเนินการ";
+        
+        // Update status counts
+        if (statusCounts[status] !== undefined) {
+            statusCounts[status]++;
+        } else {
+            statusCounts["กำลังดำเนินการ"]++;
+        }
+        
+        // Update contractor budgets
+        contractorBudgets[contractor] = (contractorBudgets[contractor] || 0) + budget;
+        
+        // Update owner budgets
+        ownerBudgets[owner] = (ownerBudgets[owner] || 0) + budget;
+        
+        // Update matrix
+        if (!matrix[contractor]) {
+            matrix[contractor] = {};
+        }
+        if (!matrix[contractor][owner]) {
+            matrix[contractor][owner] = {
+                budget: 0,
+                active: 0,
+                completed: 0,
+                total: 0
+            };
+        }
+        
+        const group = matrix[contractor][owner];
+        group.budget += budget;
+        group.total += 1;
+        if (status === "ส่งมอบแล้ว") {
+            group.completed += 1;
+        } else {
+            group.active += 1;
+        }
+    });
+    
+    // 2. Render Matrix Table Rows
+    const tableBody = document.getElementById("matrix-table-body");
+    if (tableBody) {
+        tableBody.innerHTML = "";
+        
+        let hasData = false;
+        Object.keys(matrix).sort().forEach(contractor => {
+            const owners = matrix[contractor];
+            const sortedOwners = Object.keys(owners).sort();
+            sortedOwners.forEach((owner, index) => {
+                hasData = true;
+                const data = owners[owner];
+                const row = document.createElement("tr");
+                row.className = "hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition duration-150";
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-semibold text-slate-900">${index === 0 ? contractor : ""}</td>
+                    <td class="px-6 py-4 text-slate-700">${owner}</td>
+                    <td class="px-6 py-4 text-right font-semibold text-slate-900">${formatCurrency(data.budget)}</td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="text-blue-600 font-bold bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">${data.active}</span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">${data.completed}</span>
+                    </td>
+                    <td class="px-6 py-4 text-center font-bold text-slate-800">${data.total}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        });
+        
+        if (!hasData) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-slate-400">ยังไม่มีข้อมูลโครงการสำหรับแสดงภาพรวม</td>
+                </tr>
+            `;
+        }
+    }
+    
+    // 3. Render Chart 1: Contractor Budgets (Bar Chart)
+    const ctx1 = document.getElementById("chart-contractor-budget");
+    if (ctx1) {
+        if (contractorBudgetChartInstance) contractorBudgetChartInstance.destroy();
+        
+        const labels = Object.keys(contractorBudgets);
+        const data = Object.values(contractorBudgets);
+        
+        if (labels.length > 0) {
+            contractorBudgetChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'งบประมาณรวม (บาท)',
+                        data: data,
+                        backgroundColor: 'rgba(99, 102, 241, 0.75)', // Indigo
+                        borderColor: 'rgb(99, 102, 241)',
+                        borderWidth: 1.5,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value >= 1e6 ? (value / 1e6) + 'M' : value >= 1e3 ? (value / 1e3) + 'k' : value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // 4. Render Chart 2: Project Status (Doughnut Chart)
+    const ctx2 = document.getElementById("chart-project-status");
+    if (ctx2) {
+        if (projectStatusChartInstance) projectStatusChartInstance.destroy();
+        
+        const total = statusCounts['กำลังดำเนินการ'] + statusCounts['ล่าช้า'] + statusCounts['ส่งมอบแล้ว'];
+        if (total > 0) {
+            projectStatusChartInstance = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['กำลังดำเนินการ', 'ดำเนินงานล่าช้า', 'ส่งมอบแล้ว'],
+                    datasets: [{
+                        data: [statusCounts['กำลังดำเนินการ'], statusCounts['ล่าช้า'], statusCounts['ส่งมอบแล้ว']],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',  // Blue
+                            'rgba(244, 63, 94, 0.8)',   // Rose
+                            'rgba(16, 185, 129, 0.8)'   // Emerald
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+    }
+
+    // 5. Render Chart 3: Owner Budgets (Horizontal Bar Chart)
+    const ctx3 = document.getElementById("chart-owner-budget");
+    if (ctx3) {
+        if (ownerBudgetChartInstance) ownerBudgetChartInstance.destroy();
+        
+        const sortedOwners = Object.keys(ownerBudgets)
+            .sort((a, b) => ownerBudgets[b] - ownerBudgets[a])
+            .slice(0, 5);
+        const sortedBudgets = sortedOwners.map(o => ownerBudgets[o]);
+        
+        if (sortedOwners.length > 0) {
+            ownerBudgetChartInstance = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: sortedOwners,
+                    datasets: [{
+                        label: 'งบประมาณรวม (บาท)',
+                        data: sortedBudgets,
+                        backgroundColor: 'rgba(59, 130, 246, 0.75)', // Blue
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1.5,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Horizontal bars
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value >= 1e6 ? (value / 1e6) + 'M' : value >= 1e3 ? (value / 1e3) + 'k' : value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+function populateProjectDetailsBreakdown(project) {
+    // 1. Deliverables Progress
+    const deliverables = project.deliverables || [];
+    const totalDeliv = deliverables.length;
+    const completedDeliv = deliverables.filter(d => d.status === "ส่งมอบแล้ว").length;
+    const delivPercent = totalDeliv > 0 ? Math.round((completedDeliv / totalDeliv) * 100) : 0;
+    
+    document.getElementById("detail-breakdown-deliv-text").innerText = `${completedDeliv}/${totalDeliv} รายการ (${delivPercent}%)`;
+    document.getElementById("detail-breakdown-deliv-bar").style.width = `${delivPercent}%`;
+    
+    // 2. POs Progress
+    const pos = project.purchase_orders || [];
+    const totalPOs = pos.length;
+    const completedPOs = pos.filter(p => p.delivery_status === "ส่งมอบแล้ว").length;
+    const poPercent = totalPOs > 0 ? Math.round((completedPOs / totalPOs) * 100) : 0;
+    
+    document.getElementById("detail-breakdown-po-text").innerText = `${completedPOs}/${totalPOs} รายการ (${poPercent}%)`;
+    document.getElementById("detail-breakdown-po-bar").style.width = `${poPercent}%`;
+    
+    // 3. PO Budget Summary
+    const poTotalBudget = pos.reduce((sum, p) => sum + (p.budget || 0), 0);
+    document.getElementById("detail-breakdown-po-budget").innerText = formatCurrency(poTotalBudget);
+}
+
