@@ -114,7 +114,7 @@ def export_projects_to_excel(projects):
     end_row = ws.max_row
     
     # Summary Row
-    ws.append([])
+    ws.append([None])
     summary_row = ws.max_row
     ws.cell(row=summary_row, column=1, value="รวมทั้งสิ้น").font = SUMMARY_FONT
     ws.cell(row=summary_row, column=1).alignment = Alignment(horizontal="center")
@@ -204,7 +204,7 @@ def export_purchase_orders_to_excel(pos):
     end_row = ws.max_row
     
     # Summary Row
-    ws.append([])
+    ws.append([None])
     summary_row = ws.max_row
     ws.cell(row=summary_row, column=1, value="รวมทั้งสิ้น").font = SUMMARY_FONT
     ws.cell(row=summary_row, column=1).alignment = Alignment(horizontal="center")
@@ -344,7 +344,7 @@ def export_project_detail_to_excel(project):
     deliv_end = ws2.max_row
     
     if len(project.deliverables) > 0:
-        ws2.append([])
+        ws2.append([None])
         sum_row = ws2.max_row
         ws2.cell(row=sum_row, column=1, value="รวมงบประมาณ").font = SUMMARY_FONT
         ws2.cell(row=sum_row, column=1).alignment = Alignment(horizontal="center")
@@ -416,7 +416,7 @@ def export_project_detail_to_excel(project):
     po_end = ws3.max_row
     
     if len(project.purchase_orders) > 0:
-        ws3.append([])
+        ws3.append([None])
         sum_row = ws3.max_row
         ws3.cell(row=sum_row, column=1, value="รวมงบประมาณ PO").font = SUMMARY_FONT
         ws3.cell(row=sum_row, column=1).alignment = Alignment(horizontal="center")
