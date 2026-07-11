@@ -45,6 +45,8 @@ def autofit_columns(ws, max_len_adjust=4):
 
 def export_projects_to_excel(projects):
     wb = Workbook()
+    wb.calculation.calcMode = 'auto'
+    wb.calculation.fullCalcOnLoad = True
     ws = wb.active
     ws.title = "ภาพรวมโครงการสัญญา"
     
@@ -142,6 +144,8 @@ def export_projects_to_excel(projects):
 
 def export_purchase_orders_to_excel(pos):
     wb = Workbook()
+    wb.calculation.calcMode = 'auto'
+    wb.calculation.fullCalcOnLoad = True
     ws = wb.active
     ws.title = "รายการใบสั่งซื้อ PO"
     
@@ -228,6 +232,8 @@ def export_purchase_orders_to_excel(pos):
 
 def export_project_detail_to_excel(project):
     wb = Workbook()
+    wb.calculation.calcMode = 'auto'
+    wb.calculation.fullCalcOnLoad = True
     
     # Sheet 1: Project Metadata
     ws1 = wb.active
@@ -439,6 +445,8 @@ def export_project_detail_to_excel(project):
 
 def export_po_detail_to_excel(po):
     wb = Workbook()
+    wb.calculation.calcMode = 'auto'
+    wb.calculation.fullCalcOnLoad = True
     ws = wb.active
     ws.title = "รายละเอียดใบสั่งซื้อ PO"
     
