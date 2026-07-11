@@ -201,7 +201,7 @@ def get_dashboard_alerts(db: Session):
     alerts = []
     for d in deliverables:
         project = db.query(models.Project).filter(models.Project.id == d.project_id).first()
-        if not project:
+        if not project or not project.start_date or not project.end_date:
             continue
             
         days_remaining = (d.due_date - today).days
@@ -279,6 +279,8 @@ def get_dashboard_po_alerts(db: Session):
         days_remaining = (po.due_date - today).days
         if days_remaining <= 7:
             project = db.query(models.Project).filter(models.Project.id == po.project_id).first()
+            if project and (not project.start_date or not project.end_date):
+                continue
             project_name = project.name if project else "ไม่พบโครงการ"
             alerts.append({
                 "po_id": po.id,

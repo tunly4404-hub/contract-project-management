@@ -21,8 +21,8 @@ class Project(Base):
     name = Column(String, nullable=False)
     owner = Column(String, nullable=False)
     budget = Column(Float, nullable=False)
-    start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
     contract_signing_date = Column(Date, nullable=True)
     status = Column(String, nullable=False, default="กำลังดำเนินการ") # กำลังดำเนินการ, ล่าช้า, ส่งมอบแล้ว
 

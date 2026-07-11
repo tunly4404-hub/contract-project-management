@@ -829,7 +829,7 @@ function renderProjectsTable(projects) {
             <td class="px-6 py-4 text-slate-700 text-sm font-medium">${project.contractor || "-"}</td>
             <td class="px-6 py-4 text-slate-600 text-sm">${project.job_type || "-"}</td>
             <td class="px-6 py-4 font-semibold text-slate-900 text-sm">${formatCurrency(project.budget)}</td>
-            <td class="px-6 py-4 text-slate-500 text-xs">${formatThaiDate(project.start_date)} - ${formatThaiDate(project.end_date)}</td>
+            <td class="px-6 py-4 text-slate-500 text-xs">${(project.start_date || project.end_date) ? `${formatThaiDate(project.start_date)} - ${formatThaiDate(project.end_date)}` : "-"}</td>
             <td class="px-6 py-4">
                 <span class="${badgeColor} text-xs px-2.5 py-0.5 rounded-full font-bold">${project.status}</span>
             </td>
@@ -905,6 +905,8 @@ async function saveProject(event) {
     const workOrderDate = document.getElementById("form-work-order-date").value || null;
     const contractSigningDate = document.getElementById("form-contract-signing-date").value || null;
     const guaranteeReceiptNumber = document.getElementById("form-guarantee-receipt-number").value || null;
+    const startDate = document.getElementById("form-start-date").value || null;
+    const endDate = document.getElementById("form-end-date").value || null;
     
     let contractorVal = document.getElementById("form-contractor").value;
     if (contractorVal === "ADD_NEW") {
@@ -950,8 +952,8 @@ async function saveProject(event) {
         owner: document.getElementById("form-owner").value,
         budget: parseFloat(document.getElementById("form-budget").value),
         status: document.getElementById("form-status").value,
-        start_date: document.getElementById("form-start-date").value,
-        end_date: document.getElementById("form-end-date").value,
+        start_date: startDate,
+        end_date: endDate,
         contract_signing_date: contractSigningDate,
         
         contract_number: document.getElementById("form-contract-number").value || null,
@@ -1055,8 +1057,8 @@ function editProject(id) {
     document.getElementById("form-owner").value = project.owner;
     document.getElementById("form-budget").value = project.budget;
     document.getElementById("form-status").value = project.status;
-    document.getElementById("form-start-date").value = project.start_date;
-    document.getElementById("form-end-date").value = project.end_date;
+    document.getElementById("form-start-date").value = project.start_date || "";
+    document.getElementById("form-end-date").value = project.end_date || "";
     document.getElementById("form-contract-signing-date").value = project.contract_signing_date || "";
     
     document.getElementById("form-contract-number").value = project.contract_number || "";

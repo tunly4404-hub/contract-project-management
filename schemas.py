@@ -148,8 +148,8 @@ class ProjectBase(BaseModel):
     name: str
     owner: str
     budget: float
-    start_date: date
-    end_date: date
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     contract_signing_date: Optional[date] = None
     status: str = "กำลังดำเนินการ"
     
