@@ -37,12 +37,27 @@ try:
     pdfmetrics.registerFont(TTFont('NotoSansThai', REGULAR_FONT_PATH))
     pdfmetrics.registerFont(TTFont('NotoSansThai-Bold', BOLD_FONT_PATH))
     
-    # Register font family mapping to prevent family determination errors
+    # Register font family mapping in both original case and lowercase
+    # ReportLab uses lowercase names internally for family lookup.
     pdfmetrics.registerFontFamily(
         'NotoSansThai',
         normal='NotoSansThai',
         bold='NotoSansThai-Bold',
         italic='NotoSansThai',
+        boldItalic='NotoSansThai-Bold'
+    )
+    pdfmetrics.registerFontFamily(
+        'notosansthai',
+        normal='NotoSansThai',
+        bold='NotoSansThai-Bold',
+        italic='NotoSansThai',
+        boldItalic='NotoSansThai-Bold'
+    )
+    pdfmetrics.registerFontFamily(
+        'notosansthai-bold',
+        normal='NotoSansThai-Bold',
+        bold='NotoSansThai-Bold',
+        italic='NotoSansThai-Bold',
         boldItalic='NotoSansThai-Bold'
     )
 except Exception as e:
