@@ -146,8 +146,8 @@ def validate_uploaded_file(file: UploadFile):
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to read file size")
         
-    if file_size > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File size exceeds the 10MB limit")
+    if file_size > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds the 50MB limit")
 
 
 # Authentication Routes
