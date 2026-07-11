@@ -841,6 +841,13 @@ function renderProjectsTable(projects) {
     const noProjectsMsg = document.getElementById("no-projects-message");
     tableBody.innerHTML = "";
     
+    // Calculate total projects and budget sum
+    const totalBudget = projects.reduce((sum, p) => sum + (p.budget || 0), 0);
+    const countSpan = document.getElementById("summary-project-count");
+    if (countSpan) countSpan.innerText = `${projects.length} โครงการ`;
+    const budgetSpan = document.getElementById("summary-project-budget");
+    if (budgetSpan) budgetSpan.innerText = formatCurrency(totalBudget);
+
     if (projects.length === 0) {
         noProjectsMsg.classList.remove("hidden");
         return;
@@ -1801,6 +1808,13 @@ function renderPOsTable(pos) {
     const noPosMsg = document.getElementById("no-pos-message");
     tableBody.innerHTML = "";
     
+    // Calculate total POs and budget sum
+    const totalBudget = pos.reduce((sum, p) => sum + (p.budget || 0), 0);
+    const countSpan = document.getElementById("summary-po-count");
+    if (countSpan) countSpan.innerText = `${pos.length} รายการ`;
+    const budgetSpan = document.getElementById("summary-po-budget");
+    if (budgetSpan) budgetSpan.innerText = formatCurrency(totalBudget);
+
     if (pos.length === 0) {
         noPosMsg.classList.remove("hidden");
         return;
@@ -2893,4 +2907,56 @@ function populateProjectDetailsBreakdown(project) {
     const poTotalBudget = pos.reduce((sum, p) => sum + (p.budget || 0), 0);
     document.getElementById("detail-breakdown-po-budget").innerText = formatCurrency(poTotalBudget);
 }
+
+// ====================================================
+// EXCEL EXPORT FEATURES
+// ====================================================
+async function downloadExcelFile(url, filename) {
+    showLoading();
+    try {
+        const response = await secureFetch(url);
+        if (!response.ok) throw new Error("Failed to download file");
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        console.error("Error downloading excel file:", error);
+        alert("ไม่สามารถดาวน์โหลดไฟล์ Excel ได้: " + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+function exportProjectsExcel() {
+    const query = document.getElementById("search-input").value;
+    const status = document.getElementById("status-filter").value;
+    const url = `/api/exports/projects/excel?query=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}`;
+    downloadExcelFile(url, "projects_summary.xlsx");
+}
+
+function exportPOsExcel() {
+    const query = document.getElementById("po-search-input").value;
+    const status = document.getElementById("po-status-filter").value;
+    const url = `/api/exports/purchase-orders/excel?query=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}`;
+    downloadExcelFile(url, "purchase_orders_summary.xlsx");
+}
+
+function exportProjectDetailExcel() {
+    if (!currentProjectId) return;
+    const url = `/api/exports/projects/${currentProjectId}/excel`;
+    downloadExcelFile(url, `project_detail_${currentProjectId}.xlsx`);
+}
+
+function exportPODetailExcel() {
+    if (!currentPOId) return;
+    const url = `/api/exports/purchase-orders/${currentPOId}/excel`;
+    downloadExcelFile(url, `purchase_order_detail_${currentPOId}.xlsx`);
+}
+
 

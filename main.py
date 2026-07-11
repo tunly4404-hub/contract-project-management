@@ -13,6 +13,8 @@ import models
 import schemas
 import crud
 from database import engine, get_db, SessionLocal
+from typing import Optional
+import excel_export
 
 # Create DB tables
 models.Base.metadata.create_all(bind=engine)
@@ -759,6 +761,93 @@ def delete_guarantee_document(project_id: int, username: str = Depends(get_curre
         db.refresh(db_project)
         crud.log_user_action(db, username, "ลบ", "หลักฐานการค้ำประกัน", orig_filename, f"ลบหลักฐานการค้ำประกันโครงการ '{db_project.name}'")
     return db_project
+
+
+# Excel Export Endpoints
+@app.get("/api/exports/projects/excel")
+def export_projects_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+    projects = crud.get_projects(db, skip=0, limit=1000)
+    filtered = []
+    for p in projects:
+        if status and status != "ทั้งหมด":
+            if p.status != status:
+                continue
+        if query:
+            q = query.lower()
+            name_match = q in p.name.lower()
+            owner_match = q in p.owner.lower()
+            contractor_match = p.contractor and (q in p.contractor.lower())
+            job_type_match = p.job_type and (q in p.job_type.lower())
+            fiscal_year_match = p.fiscal_year and (q in str(p.fiscal_year))
+            status_match = q in p.status.lower()
+            if not (name_match or owner_match or contractor_match or job_type_match or fiscal_year_match or status_match):
+                continue
+        filtered.append(p)
+        
+    excel_file = excel_export.export_projects_to_excel(filtered)
+    
+    from fastapi.responses import StreamingResponse
+    headers = {
+        'Content-Disposition': 'attachment; filename="projects_summary.xlsx"'
+    }
+    return StreamingResponse(excel_file, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+@app.get("/api/exports/purchase-orders/excel")
+def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+    pos = crud.get_purchase_orders(db, skip=0, limit=1000)
+    filtered = []
+    for po in pos:
+        if status and status != "ทั้งหมด":
+            if po.delivery_status != status:
+                continue
+        if query:
+            q = query.lower()
+            proj_name = po.project.name.lower() if po.project else ""
+            owner = po.project.owner.lower() if po.project else ""
+            po_number_match = q in po.po_number.lower()
+            proj_match = q in proj_name
+            owner_match = q in owner
+            contractor_match = q in po.contractor.lower()
+            material_match = q in po.material_type.lower()
+            if not (po_number_match or proj_match or owner_match or contractor_match or material_match):
+                continue
+        filtered.append(po)
+        
+    excel_file = excel_export.export_purchase_orders_to_excel(filtered)
+    
+    from fastapi.responses import StreamingResponse
+    headers = {
+        'Content-Disposition': 'attachment; filename="purchase_orders_summary.xlsx"'
+    }
+    return StreamingResponse(excel_file, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+@app.get("/api/exports/projects/{project_id}/excel")
+def export_project_detail_excel(project_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+    project = crud.get_project(db, project_id=project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    excel_file = excel_export.export_project_detail_to_excel(project)
+    
+    from fastapi.responses import StreamingResponse
+    headers = {
+        'Content-Disposition': f'attachment; filename="project_detail_{project_id}.xlsx"'
+    }
+    return StreamingResponse(excel_file, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+@app.get("/api/exports/purchase-orders/{po_id}/excel")
+def export_po_detail_excel(po_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+    po = crud.get_purchase_order(db, po_id=po_id)
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+        
+    excel_file = excel_export.export_po_detail_to_excel(po)
+    
+    from fastapi.responses import StreamingResponse
+    headers = {
+        'Content-Disposition': f'attachment; filename="purchase_order_detail_{po_id}.xlsx"'
+    }
+    return StreamingResponse(excel_file, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 # Mount Static and Uploads directories
