@@ -232,6 +232,11 @@ class FirestoreQuery:
     def limit(self, limit):
         return self
 
+    def delete(self):
+        docs = self.all()
+        for doc in docs:
+            self.client.collection(self.collection_name).document(str(doc._doc_id)).delete()
+
 
 class FirestoreSession:
     def __init__(self, client):
@@ -242,6 +247,16 @@ class FirestoreSession:
         
     def commit(self):
         pass
+
+    def rollback(self):
+        pass
+
+    def flush(self):
+        pass
+
+    def add_all(self, objects):
+        for obj in objects:
+            self.add(obj)
         
     def refresh(self, obj):
         doc_id = getattr(obj, "_doc_id", None)
