@@ -31,6 +31,10 @@ def run_migrations():
             print("Adding 'contract_duration_days' column to 'projects' table...")
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE projects ADD COLUMN contract_duration_days INTEGER;"))
+        if 'fiscal_year' not in columns:
+            print("Adding 'fiscal_year' column to 'projects' table...")
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN fiscal_year INTEGER;"))
     except Exception as e:
         print(f"Error migrating projects table: {e}")
         
