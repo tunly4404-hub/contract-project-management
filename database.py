@@ -241,15 +241,27 @@ class FirestoreQuery:
 class FirestoreSession:
     def __init__(self, client):
         self.client = client
+        self._added_objects = []
         
     def query(self, model_class):
         return FirestoreQuery(self.client, model_class)
         
     def commit(self):
-        pass
+        # Persist post-add attribute updates on tracked SQLAlchemy models
+        for obj in self._added_objects:
+            collection_name = getattr(obj, "_collection_name", None)
+            doc_id = getattr(obj, "_doc_id", None)
+            if collection_name and doc_id:
+                data = {}
+                for column in obj.__table__.columns:
+                    val = getattr(obj, column.name)
+                    if isinstance(val, (date, datetime)):
+                        val = val.isoformat()
+                    data[column.name] = val
+                self.client.collection(collection_name).document(str(doc_id)).set(data)
 
     def rollback(self):
-        pass
+        self._added_objects = []
 
     def flush(self):
         pass
@@ -271,6 +283,9 @@ class FirestoreSession:
     def add(self, obj):
         if obj is None:
             return
+            
+        if obj not in self._added_objects:
+            self._added_objects.append(obj)
             
         import models
         model_class = obj.__class__
