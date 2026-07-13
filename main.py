@@ -336,15 +336,42 @@ def reset_user_password(user_id: str, payload: schemas.UserResetPassword, curren
 @app.get("/api/admin/disk-usage")
 def get_disk_usage(current_admin = Depends(check_admin_role)):
     try:
-        total, used, free = shutil.disk_usage(PERSISTENT_DIR)
+        if firebase_bucket is None:
+            total, used, free = shutil.disk_usage(PERSISTENT_DIR)
+            return {
+                "total_bytes": total,
+                "used_bytes": used,
+                "free_bytes": free,
+                "percentage_used": round((used / total) * 100, 2)
+            }
+        
+        # Calculate used space by listing blobs in Firebase Storage
+        blobs = firebase_bucket.list_blobs()
+        used = sum(blob.size for blob in blobs if blob.size is not None)
+        
+        # Free tier is 5 GB
+        total = 5 * 1024 * 1024 * 1024
+        free = max(0, total - used)
+        percentage = round((used / total) * 100, 2) if total > 0 else 0.0
+        
         return {
             "total_bytes": total,
             "used_bytes": used,
             "free_bytes": free,
-            "percentage_used": round((used / total) * 100, 2)
+            "percentage_used": percentage
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read disk usage: {str(e)}")
+        # Fallback to local disk usage on error
+        try:
+            total, used, free = shutil.disk_usage(PERSISTENT_DIR)
+            return {
+                "total_bytes": total,
+                "used_bytes": used,
+                "free_bytes": free,
+                "percentage_used": round((used / total) * 100, 2)
+            }
+        except Exception:
+            raise HTTPException(status_code=500, detail=f"Failed to read storage usage: {str(e)}")
 
 @app.get("/api/audit-logs", response_model=List[schemas.AuditLogResponse])
 def get_audit_logs(
