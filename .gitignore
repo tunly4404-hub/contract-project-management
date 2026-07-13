@@ -20,3 +20,4 @@ desktop.ini
 .idea/
 *.log
 firebase_credentials.json
+serviceAccountKey.json

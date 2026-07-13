@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 from datetime import date, datetime
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
-# User Authentication Schemas (V5)
+# User Authentication Schemas
 class UserBase(BaseModel):
     username: str
     fullname: str
@@ -13,7 +13,7 @@ class UserCreate(UserBase):
     password: str
 
 class UserResponse(UserBase):
-    id: int
+    id: str
 
     class Config:
         from_attributes = True
@@ -66,8 +66,8 @@ class DeliverableUpdate(BaseModel):
     external_delivery_no: Optional[str] = None
 
 class Deliverable(DeliverableBase):
-    id: int
-    project_id: int
+    id: str
+    project_id: str
 
     class Config:
         from_attributes = True
@@ -80,8 +80,8 @@ class DocumentBase(BaseModel):
     url_path: str
 
 class Document(DocumentBase):
-    id: int
-    project_id: int
+    id: str
+    project_id: str
 
     class Config:
         from_attributes = True
@@ -140,8 +140,8 @@ class PurchaseOrderUpdate(BaseModel):
     delivery_file_filename: Optional[str] = None
 
 class PurchaseOrder(PurchaseOrderBase):
-    id: int
-    project_id: int
+    id: str
+    project_id: str
 
     class Config:
         from_attributes = True
@@ -226,7 +226,7 @@ class ProjectUpdate(BaseModel):
     right_assignment_percentage: Optional[float] = None
 
 class Project(ProjectBase):
-    id: int
+    id: str
     deliverables: List[Deliverable] = []
     documents: List[Document] = []
     purchase_orders: List[PurchaseOrder] = []
@@ -242,8 +242,8 @@ class DashboardStats(BaseModel):
     active_total_budget: float
 
 class DashboardAlert(BaseModel):
-    deliverable_id: int
-    project_id: int
+    deliverable_id: str
+    project_id: str
     project_name: str
     deliverable_name: str
     due_date: date
@@ -252,8 +252,8 @@ class DashboardAlert(BaseModel):
 
 # V4 Dashboard Alert Schema for PO Deliveries
 class DashboardPOAlert(BaseModel):
-    po_id: int
-    project_id: int
+    po_id: str
+    project_id: str
     project_name: str
     po_number: str
     budget: float
@@ -263,8 +263,8 @@ class DashboardPOAlert(BaseModel):
 
 
 class AuditLogResponse(BaseModel):
-    id: int
-    user_id: Optional[int] = None
+    id: str
+    user_id: Optional[str] = None
     username: str
     fullname: Optional[str] = None
     action: str

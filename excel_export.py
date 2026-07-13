@@ -3,7 +3,7 @@ from datetime import date, datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-import models
+# Remove import models to support Firestore migration without models.py
 
 # Premium Color Palette
 HEADER_FILL = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid") # Indigo 600
@@ -23,9 +23,33 @@ BORDER_TOP_THIN_BOTTOM_DOUBLE = Border(
     bottom=Side(border_style="double", color="475569")
 )
 
+
+class DictObject:
+    def __init__(self, d):
+        self._d = d
+    def __getattr__(self, name):
+        val = self._d.get(name)
+        if isinstance(val, dict):
+            return DictObject(val)
+        if isinstance(val, list):
+            return [ensure_obj(x) for x in val]
+        return val
+
+def ensure_obj(item):
+    if isinstance(item, dict):
+        return DictObject(item)
+    return item
+
 def format_thai_date(d):
     if not d:
         return "-"
+    if isinstance(d, str):
+        # Handle datetime strings like 2026-07-13T10:00:00
+        date_str = d.split("T")[0]
+        try:
+            d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return d
     if isinstance(d, (date, datetime)):
         months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
         return f"{d.day} {months[d.month-1]} {d.year + 543}"
@@ -44,6 +68,7 @@ def autofit_columns(ws, max_len_adjust=4):
         ws.column_dimensions[col_letter].width = max(max_len + max_len_adjust, 12)
 
 def export_projects_to_excel(projects):
+    projects = [ensure_obj(p) for p in projects]
     wb = Workbook()
     wb.calculation.calcMode = 'auto'
     wb.calculation.fullCalcOnLoad = True
@@ -143,6 +168,7 @@ def export_projects_to_excel(projects):
     return out
 
 def export_purchase_orders_to_excel(pos):
+    pos = [ensure_obj(po) for po in pos]
     wb = Workbook()
     wb.calculation.calcMode = 'auto'
     wb.calculation.fullCalcOnLoad = True
@@ -231,6 +257,7 @@ def export_purchase_orders_to_excel(pos):
     return out
 
 def export_project_detail_to_excel(project):
+    project = ensure_obj(project)
     wb = Workbook()
     wb.calculation.calcMode = 'auto'
     wb.calculation.fullCalcOnLoad = True
@@ -444,6 +471,7 @@ def export_project_detail_to_excel(project):
     return out
 
 def export_po_detail_to_excel(po):
+    po = ensure_obj(po)
     wb = Workbook()
     wb.calculation.calcMode = 'auto'
     wb.calculation.fullCalcOnLoad = True

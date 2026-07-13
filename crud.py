@@ -1,10 +1,8 @@
-from sqlalchemy.orm import Session
 from datetime import date, timedelta, datetime
 import bcrypt
-import models
 import schemas
 
-# User operations (V5)
+# User operations password helpers
 def get_password_hash(password: str) -> str:
     pwd_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
@@ -16,300 +14,429 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     hashed_byte_enc = hashed_password.encode('utf-8')
     return bcrypt.checkpw(password_byte_enc, hashed_byte_enc)
 
-def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+def get_user_by_username(db, username: str):
+    if db is None or not username:
+        return None
+    doc = db.collection("users").document(username).get()
+    if doc.exists:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        return data
+    return None
 
-def create_user(db: Session, user: schemas.UserCreate):
+def create_user(db, user: schemas.UserCreate):
+    if db is None:
+        return None
     hashed_pwd = get_password_hash(user.password)
-    first_user = db.query(models.User).first()
+    
+    # Check if this is the first user to make them admin
+    users_ref = db.collection("users")
+    first_user = next(users_ref.limit(1).stream(), None)
     role_val = "admin" if first_user is None else "user"
-    db_user = models.User(
-        username=user.username,
-        fullname=user.fullname,
-        role=role_val,
-        is_active=False, # Must be approved by admin first
-        hashed_password=hashed_pwd
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    
+    user_data = {
+        "username": user.username.strip(),
+        "fullname": user.fullname.strip(),
+        "role": role_val,
+        "is_active": False,  # Approval needed from admin
+        "hashed_password": hashed_pwd
+    }
+    
+    users_ref.document(user.username.strip()).set(user_data)
+    user_data["id"] = user.username.strip()
+    return user_data
 
 
-# Project CRUD with V5 Audit Trail
-def get_project(db: Session, project_id: int):
-    return db.query(models.Project).filter(models.Project.id == project_id).first()
+# Project CRUD
+def get_project(db, project_id: str):
+    if db is None or not project_id:
+        return None
+    doc = db.collection("projects").document(project_id).get()
+    if doc.exists:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        return data
+    return None
 
-def get_projects(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Project).offset(skip).limit(limit).all()
+def get_projects(db, skip: int = 0, limit: int = 100):
+    if db is None:
+        return []
+    docs = db.collection("projects").stream()
+    projects = []
+    for doc in docs:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        projects.append(data)
+    
+    # Sort projects: newest first
+    def get_sort_key(item):
+        created_at = item.get("created_at")
+        if created_at:
+            return str(created_at)
+        signing_date = item.get("contract_signing_date")
+        if signing_date:
+            return str(signing_date)
+        return item.get("id", "")
+    
+    projects.sort(key=get_sort_key, reverse=True)
+    return projects[skip:skip+limit]
 
-def create_project(db: Session, project: schemas.ProjectCreate, username: str):
+def create_project(db, project: schemas.ProjectCreate, username: str):
+    if db is None:
+        return None
     project_dict = project.model_dump()
-    # Remove audit keys to prevent duplicate keyword arguments
-    for f in ["created_by", "created_at", "updated_by", "updated_at"]:
-        project_dict.pop(f, None)
-        
-    db_project = models.Project(
-        created_by=username,
-        updated_by=username,
-        **project_dict
-    )
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+    for k, v in project_dict.items():
+        if isinstance(v, (date, datetime)):
+            project_dict[k] = v.isoformat()
+            
+    project_dict["created_by"] = username
+    project_dict["created_at"] = datetime.utcnow().isoformat()
+    project_dict["updated_by"] = username
+    project_dict["updated_at"] = datetime.utcnow().isoformat()
+    
+    doc_ref = db.collection("projects").document()
+    doc_ref.set(project_dict)
+    
+    project_dict["id"] = doc_ref.id
+    return project_dict
 
-def update_project(db: Session, project_id: int, project: schemas.ProjectUpdate, username: str):
+def update_project(db, project_id: str, project: schemas.ProjectUpdate, username: str):
+    if db is None or not project_id:
+        return None
     db_project = get_project(db, project_id)
     if not db_project:
         return None
-    
+        
     update_data = project.model_dump(exclude_unset=True)
-    # Prevent user payload from manually overwriting audit trail metadata
-    for f in ["created_by", "created_at", "updated_by", "updated_at"]:
+    for k, v in update_data.items():
+        if isinstance(v, (date, datetime)):
+            update_data[k] = v.isoformat()
+            
+    for f in ["created_by", "created_at", "updated_by", "updated_at", "id"]:
         update_data.pop(f, None)
         
-    for key, value in update_data.items():
-        setattr(db_project, key, value)
-        
-    db_project.updated_by = username
-    db_project.updated_at = datetime.utcnow()
+    update_data["updated_by"] = username
+    update_data["updated_at"] = datetime.utcnow().isoformat()
     
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+    db.collection("projects").document(project_id).update(update_data)
+    return get_project(db, project_id)
 
-def delete_project(db: Session, project_id: int):
-    db_project = get_project(db, project_id)
-    if not db_project:
+def delete_project(db, project_id: str):
+    if db is None or not project_id:
         return False
-    db.delete(db_project)
-    db.commit()
+    
+    # Delete the project document
+    db.collection("projects").document(project_id).delete()
+    
+    # Cascade delete associated deliverables
+    delivs = db.collection("deliverables").where("project_id", "==", project_id).stream()
+    for d in delivs:
+        d.reference.delete()
+        
+    # Cascade delete associated purchase orders
+    pos = db.collection("purchase_orders").where("project_id", "==", project_id).stream()
+    for po in pos:
+        po.reference.delete()
+        
+    # Cascade delete associated documents
+    docs = db.collection("documents").where("project_id", "==", project_id).stream()
+    for d in docs:
+        d.reference.delete()
+        
     return True
 
 
-# Deliverable CRUD with V5 Audit Trail
-def get_deliverable(db: Session, deliverable_id: int):
-    return db.query(models.Deliverable).filter(models.Deliverable.id == deliverable_id).first()
-
-def create_deliverable(db: Session, deliverable: schemas.DeliverableCreate, project_id: int, username: str):
-    del_dict = deliverable.model_dump()
-    for f in ["created_by", "created_at", "updated_by", "updated_at"]:
-        del_dict.pop(f, None)
-        
-    db_deliverable = models.Deliverable(
-        project_id=project_id,
-        created_by=username,
-        updated_by=username,
-        **del_dict
-    )
-    db.add(db_deliverable)
-    db.commit()
-    db.refresh(db_deliverable)
-    return db_deliverable
-
-def update_deliverable(db: Session, deliverable_id: int, deliverable: schemas.DeliverableUpdate, username: str):
-    db_deliverable = get_deliverable(db, deliverable_id)
-    if not db_deliverable:
+# Deliverables CRUD
+def get_deliverable(db, deliverable_id: str):
+    if db is None or not deliverable_id:
         return None
+    doc = db.collection("deliverables").document(deliverable_id).get()
+    if doc.exists:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        return data
+    return None
+
+def create_deliverable(db, deliverable: schemas.DeliverableCreate, project_id: str, username: str):
+    if db is None:
+        return None
+    deliv_dict = deliverable.model_dump()
+    for k, v in deliv_dict.items():
+        if isinstance(v, (date, datetime)):
+            deliv_dict[k] = v.isoformat()
+            
+    deliv_dict["project_id"] = project_id
+    deliv_dict["created_by"] = username
+    deliv_dict["created_at"] = datetime.utcnow().isoformat()
+    deliv_dict["updated_by"] = username
+    deliv_dict["updated_at"] = datetime.utcnow().isoformat()
     
+    doc_ref = db.collection("deliverables").document()
+    doc_ref.set(deliv_dict)
+    
+    deliv_dict["id"] = doc_ref.id
+    return deliv_dict
+
+def update_deliverable(db, deliverable_id: str, deliverable: schemas.DeliverableUpdate, username: str):
+    if db is None or not deliverable_id:
+        return None
+    db_deliv = get_deliverable(db, deliverable_id)
+    if not db_deliv:
+        return None
+        
     update_data = deliverable.model_dump(exclude_unset=True)
-    for f in ["created_by", "created_at", "updated_by", "updated_at"]:
+    for k, v in update_data.items():
+        if isinstance(v, (date, datetime)):
+            update_data[k] = v.isoformat()
+            
+    for f in ["created_by", "created_at", "updated_by", "updated_at", "id", "project_id"]:
         update_data.pop(f, None)
         
-    for key, value in update_data.items():
-        setattr(db_deliverable, key, value)
-        
-    db_deliverable.updated_by = username
-    db_deliverable.updated_at = datetime.utcnow()
+    update_data["updated_by"] = username
+    update_data["updated_at"] = datetime.utcnow().isoformat()
     
-    db.commit()
-    db.refresh(db_deliverable)
-    return db_deliverable
+    db.collection("deliverables").document(deliverable_id).update(update_data)
+    return get_deliverable(db, deliverable_id)
 
-def delete_deliverable(db: Session, deliverable_id: int):
-    db_deliverable = get_deliverable(db, deliverable_id)
-    if not db_deliverable:
+def delete_deliverable(db, deliverable_id: str):
+    if db is None or not deliverable_id:
         return False
-    db.delete(db_deliverable)
-    db.commit()
+    db.collection("deliverables").document(deliverable_id).delete()
     return True
 
 
 # Document CRUD
-def get_document(db: Session, document_id: int):
-    return db.query(models.Document).filter(models.Document.id == document_id).first()
+def get_document(db, document_id: str):
+    if db is None or not document_id:
+        return None
+    doc = db.collection("documents").document(document_id).get()
+    if doc.exists:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        return data
+    return None
 
-def create_document(db: Session, document: schemas.DocumentBase, project_id: int):
-    db_document = models.Document(
-        project_id=project_id,
-        filename=document.filename,
-        file_type=document.file_type,
-        url_path=document.url_path
-    )
-    db.add(db_document)
-    db.commit()
-    db.refresh(db_document)
-    return db_document
+def create_document(db, document: schemas.DocumentBase, project_id: str):
+    if db is None:
+        return None
+    doc_dict = {
+        "project_id": project_id,
+        "filename": document.filename,
+        "file_type": document.file_type,
+        "url_path": document.url_path
+    }
+    doc_ref = db.collection("documents").document()
+    doc_ref.set(doc_dict)
+    doc_dict["id"] = doc_ref.id
+    return doc_dict
 
-def delete_document(db: Session, document_id: int):
-    db_document = get_document(db, document_id)
-    if not db_document:
+def delete_document(db, document_id: str):
+    if db is None or not document_id:
         return False
-    db.delete(db_document)
-    db.commit()
+    db.collection("documents").document(document_id).delete()
     return True
 
 
-# Dashboard functions
-def get_dashboard_stats(db: Session):
-    projects = db.query(models.Project).all()
-    total_projects = len(projects)
+# Purchase Order CRUD
+def get_purchase_order(db, po_id: str):
+    if db is None or not po_id:
+        return None
+    doc = db.collection("purchase_orders").document(po_id).get()
+    if doc.exists:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        return data
+    return None
+
+def get_purchase_orders(db):
+    if db is None:
+        return []
+    docs = db.collection("purchase_orders").stream()
+    pos = []
+    for doc in docs:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        pos.append(data)
+    return pos
+
+def create_purchase_order(db, po: schemas.PurchaseOrderCreate, project_id: str, username: str):
+    if db is None:
+        return None
+    po_dict = po.model_dump()
+    for k, v in po_dict.items():
+        if isinstance(v, (date, datetime)):
+            po_dict[k] = v.isoformat()
+            
+    po_dict["project_id"] = project_id
+    po_dict["created_by"] = username
+    po_dict["created_at"] = datetime.utcnow().isoformat()
+    po_dict["updated_by"] = username
+    po_dict["updated_at"] = datetime.utcnow().isoformat()
     
+    doc_ref = db.collection("purchase_orders").document()
+    doc_ref.set(po_dict)
+    
+    po_dict["id"] = doc_ref.id
+    return po_dict
+
+def update_purchase_order(db, po_id: str, po: schemas.PurchaseOrderUpdate, username: str):
+    if db is None or not po_id:
+        return None
+    db_po = get_purchase_order(db, po_id)
+    if not db_po:
+        return None
+        
+    update_data = po.model_dump(exclude_unset=True)
+    for k, v in update_data.items():
+        if isinstance(v, (date, datetime)):
+            update_data[k] = v.isoformat()
+            
+    for f in ["created_by", "created_at", "updated_by", "updated_at", "id", "project_id"]:
+        update_data.pop(f, None)
+        
+    update_data["updated_by"] = username
+    update_data["updated_at"] = datetime.utcnow().isoformat()
+    
+    db.collection("purchase_orders").document(po_id).update(update_data)
+    return get_purchase_order(db, po_id)
+
+def delete_purchase_order(db, po_id: str):
+    if db is None or not po_id:
+        return False
+    db.collection("purchase_orders").document(po_id).delete()
+    return True
+
+
+# Dashboard statistics and alerts
+def get_dashboard_stats(db):
+    if db is None:
+        return {"total_projects": 0, "projects_by_status": {}, "active_total_budget": 0.0}
+        
+    docs = db.collection("projects").stream()
+    total_projects = 0
     status_counts = {
         "กำลังดำเนินการ": 0,
         "ล่าช้า": 0,
         "ส่งมอบแล้ว": 0
     }
-    
     active_budget = 0.0
-    for p in projects:
-        if p.status in status_counts:
-            status_counts[p.status] += 1
-        else:
-            status_counts[p.status] = status_counts.get(p.status, 0) + 1
-            
-        if p.status == "กำลังดำเนินการ":
-            active_budget += p.budget
-            
+    
+    for doc in docs:
+        p = doc.to_dict()
+        total_projects += 1
+        status = p.get("status", "กำลังดำเนินการ")
+        status_counts[status] = status_counts.get(status, 0) + 1
+        
+        if status == "กำลังดำเนินการ":
+            try:
+                active_budget += float(p.get("budget", 0.0))
+            except (ValueError, TypeError):
+                pass
+                
     return {
         "total_projects": total_projects,
         "projects_by_status": status_counts,
         "active_total_budget": active_budget
     }
 
-def get_dashboard_alerts(db: Session):
+def get_dashboard_alerts(db):
+    if db is None:
+        return []
+        
     today = date.today()
     target_date = today + timedelta(days=14)
     
-    # query deliverables that are pending ("รอดำเนินการ") and due in 14 days
-    deliverables = db.query(models.Deliverable).filter(
-        models.Deliverable.status == "รอดำเนินการ",
-        models.Deliverable.due_date <= target_date
-    ).order_by(models.Deliverable.due_date.asc()).all()
-    
+    docs = db.collection("deliverables").where("status", "==", "รอดำเนินการ").stream()
     alerts = []
-    for d in deliverables:
-        project = db.query(models.Project).filter(models.Project.id == d.project_id).first()
-        if not project or not project.start_date or not project.end_date:
+    
+    for doc in docs:
+        d = doc.to_dict()
+        due_date_str = d.get("due_date")
+        if not due_date_str:
             continue
             
-        days_remaining = (d.due_date - today).days
-        alerts.append({
-            "deliverable_id": d.id,
-            "project_id": d.project_id,
-            "project_name": project.name,
-            "deliverable_name": d.name,
-            "due_date": d.due_date,
-            "days_remaining": days_remaining,
-            "status": d.status
-        })
-        
-    return alerts
-
-
-# Purchase Order CRUD (V4) with V5 Audit Trail
-def get_purchase_order(db: Session, po_id: int):
-    return db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == po_id).first()
-
-def get_purchase_orders(db: Session):
-    return db.query(models.PurchaseOrder).all()
-
-def create_purchase_order(db: Session, po: schemas.PurchaseOrderCreate, project_id: int, username: str):
-    po_dict = po.model_dump()
-    for f in ["created_by", "created_at", "updated_by", "updated_at"]:
-        po_dict.pop(f, None)
-        
-    db_po = models.PurchaseOrder(
-        project_id=project_id,
-        created_by=username,
-        updated_by=username,
-        **po_dict
-    )
-    db.add(db_po)
-    db.commit()
-    db.refresh(db_po)
-    return db_po
-
-def update_purchase_order(db: Session, po_id: int, po: schemas.PurchaseOrderUpdate, username: str):
-    db_po = get_purchase_order(db, po_id)
-    if not db_po:
-        return None
-    
-    update_data = po.model_dump(exclude_unset=True)
-    for f in ["created_by", "created_at", "updated_by", "updated_at"]:
-        update_data.pop(f, None)
-        
-    for key, value in update_data.items():
-        setattr(db_po, key, value)
-        
-    db_po.updated_by = username
-    db_po.updated_at = datetime.utcnow()
-        
-    db.commit()
-    db.refresh(db_po)
-    return db_po
-
-def delete_purchase_order(db: Session, po_id: int):
-    db_po = get_purchase_order(db, po_id)
-    if not db_po:
-        return False
-    db.delete(db_po)
-    db.commit()
-    return True
-
-def get_dashboard_po_alerts(db: Session):
-    today = date.today()
-    pos = db.query(models.PurchaseOrder).filter(
-        models.PurchaseOrder.delivery_status == "ยังไม่ได้ส่ง"
-    ).all()
-    
-    alerts = []
-    for po in pos:
-        days_remaining = (po.due_date - today).days
-        if days_remaining <= 3:
-            project = db.query(models.Project).filter(models.Project.id == po.project_id).first()
-            if project and (not project.start_date or not project.end_date):
+        try:
+            due_date = datetime.strptime(due_date_str.split("T")[0], "%Y-%m-%d").date()
+        except ValueError:
+            continue
+            
+        if due_date <= target_date:
+            project_id = d.get("project_id")
+            project = get_project(db, project_id)
+            if not project:
                 continue
-            project_name = project.name if project else "ไม่พบโครงการ"
+                
+            days_remaining = (due_date - today).days
             alerts.append({
-                "po_id": po.id,
-                "project_id": po.project_id,
-                "project_name": project_name,
-                "po_number": po.po_number,
-                "budget": po.budget,
-                "due_date": po.due_date,
+                "deliverable_id": doc.id,
+                "project_id": project_id,
+                "project_name": project.get("name"),
+                "deliverable_name": d.get("name"),
+                "due_date": due_date.isoformat(),
                 "days_remaining": days_remaining,
-                "delivery_status": po.delivery_status
+                "status": d.get("status")
             })
             
     alerts.sort(key=lambda x: x["days_remaining"])
     return alerts
 
-def log_user_action(db: Session, username: str, action: str, target_type: str, target_name: str, details: str = None):
-    user = db.query(models.User).filter(models.User.username == username).first()
-    user_id = user.id if user else None
-    fullname = user.fullname if user else None
+def get_dashboard_po_alerts(db):
+    if db is None:
+        return []
+        
+    today = date.today()
+    docs = db.collection("purchase_orders").where("delivery_status", "==", "ยังไม่ได้ส่ง").stream()
+    alerts = []
     
-    db_log = models.AuditLog(
-        user_id=user_id,
-        username=username,
-        fullname=fullname,
-        action=action,
-        target_type=target_type,
-        target_name=target_name,
-        details=details
-    )
-    db.add(db_log)
-    db.commit()
-    return db_log
+    for doc in docs:
+        po = doc.to_dict()
+        due_date_str = po.get("due_date")
+        if not due_date_str:
+            continue
+            
+        try:
+            due_date = datetime.strptime(due_date_str.split("T")[0], "%Y-%m-%d").date()
+        except ValueError:
+            continue
+            
+        days_remaining = (due_date - today).days
+        if days_remaining <= 3:
+            project_id = po.get("project_id")
+            project = get_project(db, project_id)
+            project_name = project.get("name") if project else "ไม่พบโครงการ"
+            
+            alerts.append({
+                "po_id": doc.id,
+                "project_id": project_id,
+                "project_name": project_name,
+                "po_number": po.get("po_number"),
+                "budget": po.get("budget"),
+                "due_date": due_date.isoformat(),
+                "days_remaining": days_remaining,
+                "delivery_status": po.get("delivery_status")
+            })
+            
+    alerts.sort(key=lambda x: x["days_remaining"])
+    return alerts
+
+def log_user_action(db, username: str, action: str, target_type: str, target_name: str, details: str = None):
+    if db is None:
+        return None
+        
+    user = get_user_by_username(db, username)
+    fullname = user.get("fullname") if user else None
+    
+    log_data = {
+        "username": username,
+        "fullname": fullname,
+        "action": action,
+        "target_type": target_type,
+        "target_name": target_name,
+        "timestamp": datetime.utcnow().isoformat(),
+        "details": details
+    }
+    
+    doc_ref = db.collection("audit_logs").document()
+    doc_ref.set(log_data)
+    log_data["id"] = doc_ref.id
+    return log_data

@@ -1,104 +1,63 @@
 import os
-from datetime import datetime, timedelta
-from typing import List
+from datetime import datetime, date, timedelta
+from typing import List, Optional, Dict
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
 import shutil
 import jwt
+import urllib.parse
+import requests
 
-import models
 import schemas
 import crud
-from database import engine, get_db, SessionLocal
-from typing import Optional
 import excel_export
+from firebase_config import db as firestore_db
 
-# Create DB tables
-models.Base.metadata.create_all(bind=engine)
+app = FastAPI(title="Smart Contract & Purchase Order Management System")
 
-# Auto-migrate database fields if needed
-def run_migrations():
-    from sqlalchemy import inspect, text
-    inspector = inspect(engine)
-    
-    # 1. Projects table
-    try:
-        columns = [col['name'] for col in inspector.get_columns('projects')]
-        if 'contract_duration_days' not in columns:
-            print("Adding 'contract_duration_days' column to 'projects' table...")
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE projects ADD COLUMN contract_duration_days INTEGER;"))
-        if 'fiscal_year' not in columns:
-            print("Adding 'fiscal_year' column to 'projects' table...")
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE projects ADD COLUMN fiscal_year INTEGER;"))
-    except Exception as e:
-        print(f"Error migrating projects table: {e}")
-        
-    # 2. Deliverables table
-    try:
-        columns = [col['name'] for col in inspector.get_columns('deliverables')]
-        if 'milestone' not in columns:
-            print("Adding 'milestone' column to 'deliverables' table...")
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE deliverables ADD COLUMN milestone TEXT;"))
-        if 'budget' not in columns:
-            print("Adding 'budget' column to 'deliverables' table...")
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE deliverables ADD COLUMN budget FLOAT;"))
-    except Exception as e:
-        print(f"Error migrating deliverables table: {e}")
+# Secret key and algorithm for JWT security
+SECRET_KEY = "ANTIGRAVITY_V5_SECRET_KEY_JWT_SECURITY_HASH"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 180
 
-run_migrations()
-
-# Auto-seed admin user if users table is empty (V5 RBAC Render helper)
+# Auto-seed database users (admin and user account) on startup
 def auto_seed_db():
-    db = SessionLocal()
+    if firestore_db is None:
+        print("Skipping database auto-seeding: Firestore connection is not initialized.")
+        return
     try:
-        admin_user = db.query(models.User).filter(models.User.username == "admin").first()
-        if not admin_user:
+        admin_doc_ref = firestore_db.collection("users").document("admin")
+        if not admin_doc_ref.get().exists:
             print("Auto-seeding default admin account on startup...")
             admin_schema = schemas.UserCreate(
                 username="admin",
                 fullname="ผู้ดูแลระบบหลัก",
                 role="admin",
-                password="admin1234" # As requested by user: admin1234
+                password="admin1234"
             )
-            crud.create_user(db, admin_schema)
-            # Enforce admin role and active status
-            db_admin = db.query(models.User).filter(models.User.username == "admin").first()
-            if db_admin:
-                db_admin.role = "admin"
-                db_admin.is_active = True
-                db.commit()
-                
-        sittipan_user = db.query(models.User).filter(models.User.username == "sittipan").first()
-        if not sittipan_user:
+            crud.create_user(firestore_db, admin_schema)
+            admin_doc_ref.update({"role": "admin", "is_active": True})
+            
+        sittipan_doc_ref = firestore_db.collection("users").document("sittipan")
+        if not sittipan_doc_ref.get().exists:
+            print("Auto-seeding default sittipan account on startup...")
             sittipan_schema = schemas.UserCreate(
                 username="sittipan",
                 fullname="คุณ สิทธิพรรณ",
                 role="user",
                 password="sittipan123"
             )
-            crud.create_user(db, sittipan_schema)
-            db_sittipan = db.query(models.User).filter(models.User.username == "sittipan").first()
-            if db_sittipan:
-                db_sittipan.role = "user"
-                db_sittipan.is_active = True
-                db.commit()
+            crud.create_user(firestore_db, sittipan_schema)
+            sittipan_doc_ref.update({"role": "user", "is_active": True})
     except Exception as e:
-        print(f"Error during auto-seeding: {e}")
-    finally:
-        db.close()
+        print(f"Error during database auto-seeding: {e}")
 
 auto_seed_db()
 
 # Support persistent directory (e.g. Render Disk mounted at /data)
 PERSISTENT_DIR = "/data" if os.path.exists("/data") and os.path.isdir("/data") else "."
-
 UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "uploads")
 UPLOAD_PO_DIR = os.path.join(UPLOAD_DIR, "pos")
 UPLOAD_DELIVERY_DIR = os.path.join(UPLOAD_DIR, "deliveries")
@@ -106,7 +65,6 @@ UPLOAD_DELIVERY_DIR = os.path.join(UPLOAD_DIR, "deliveries")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(UPLOAD_PO_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DELIVERY_DIR, exist_ok=True)
-os.makedirs("./static", exist_ok=True)
 
 # Supabase Storage configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -121,34 +79,23 @@ def upload_to_supabase_if_configured(file_content: bytes, filename: str, subfold
     if not SUPABASE_URL or not SUPABASE_KEY:
         return None
         
-    import requests
-    import urllib.parse
-    # Clean up filename for url
-    clean_filename = "".join(c for c in filename if c.isalnum() or c in "._-").strip()
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-    path = f"{subfolder}/{timestamp}_{clean_filename}"
-    
-    # URL-encode the path to support non-ASCII characters like Thai letters and spaces
-    encoded_path = urllib.parse.quote(path)
-    
+    encoded_path = urllib.parse.quote(f"{subfolder}/{filename}")
     url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{encoded_path}"
+    
     headers = {
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": content_type
     }
     
     try:
-        response = requests.post(url, data=file_content, headers=headers)
+        response = requests.post(url, headers=headers, data=file_content, timeout=30)
         if response.status_code == 200:
-            # Construct public URL
             public_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{SUPABASE_BUCKET}/{encoded_path}"
             return public_url
         else:
             print(f"Supabase upload error ({response.status_code}): {response.text}")
             raise HTTPException(status_code=500, detail=f"Failed to upload file to Supabase Storage: {response.text}")
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
+    except requests.exceptions.RequestException as e:
         print(f"Supabase upload connection error: {e}")
         raise HTTPException(status_code=500, detail=f"Connection error to Supabase Storage: {str(e)}")
 
@@ -158,27 +105,21 @@ def delete_from_supabase_if_configured(public_url: str):
     if "supabase.co/storage/v1/object/public" not in public_url:
         return
         
-    import requests
-    # Extract path from public URL
-    part = f"/storage/v1/object/public/{SUPABASE_BUCKET}/"
-    if part in public_url:
+    try:
+        part = f"/storage/v1/object/public/{SUPABASE_BUCKET}/"
         path = public_url.split(part)[1]
         url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
         headers = {
             "Authorization": f"Bearer {SUPABASE_KEY}"
         }
-        try:
-            requests.delete(url, headers=headers)
-        except Exception as e:
-            print(f"Failed to delete from Supabase storage: {e}")
+        requests.delete(url, headers=headers, timeout=10)
+    except Exception as e:
+        print(f"Failed to delete from Supabase storage: {e}")
 
-app = FastAPI(title="ระบบบริหารจัดการสัญญาและโครงการ (Project & Contract Management)")
+def get_db():
+    return firestore_db
 
-# JWT configuration
-SECRET_KEY = "ANTIGRAVITY_V5_SECRET_KEY_JWT_SECURITY_HASH"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 180
-
+# Helper function to generate JWT access tokens
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     if expires_delta:
@@ -201,7 +142,7 @@ def verify_token(token: str):
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-def get_current_user_username(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user_username(token: str = Depends(oauth2_scheme), db = Depends(get_db)):
     username = verify_token(token)
     if not username:
         raise HTTPException(
@@ -209,12 +150,13 @@ def get_current_user_username(token: str = Depends(oauth2_scheme), db: Session =
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = crud.get_user_by_username(db, username=username)
-    if not user:
+    user_dict = crud.get_user_by_username(db, username=username)
+    if not user_dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
+    user = excel_export.DictObject(user_dict)
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -222,9 +164,10 @@ def get_current_user_username(token: str = Depends(oauth2_scheme), db: Session =
         )
     return user.username
 
-def check_admin_role(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def check_admin_role(token: str = Depends(oauth2_scheme), db = Depends(get_db)):
     username = get_current_user_username(token, db)
-    user = crud.get_user_by_username(db, username=username)
+    user_dict = crud.get_user_by_username(db, username=username)
+    user = excel_export.DictObject(user_dict)
     if not user or user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -232,54 +175,95 @@ def check_admin_role(token: str = Depends(oauth2_scheme), db: Session = Depends(
         )
     return user
 
-
 # Helper validation function for uploads
 def validate_uploaded_file(file: UploadFile):
     _, ext = os.path.splitext(file.filename)
     ext = ext.lower()
     if ext not in [".pdf", ".png", ".jpg", ".jpeg"]:
         raise HTTPException(status_code=400, detail="Unsupported file format. Only PDF, PNG, JPG, and JPEG are allowed.")
-        
     try:
         file.file.seek(0, os.SEEK_END)
         file_size = file.file.tell()
         file.file.seek(0)
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to read file size")
-        
     if file_size > 50 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size exceeds the 50MB limit")
+
+# Helper function to populate relations of project dictionaries
+def populate_project_relations(db, p):
+    if not p:
+        return None
+    project_id = p["id"]
+    
+    # 1. Fetch deliverables
+    delivs = db.collection("deliverables").where("project_id", "==", project_id).stream()
+    p["deliverables"] = []
+    for d in delivs:
+        d_data = d.to_dict()
+        d_data["id"] = d.id
+        p["deliverables"].append(d_data)
+        
+    # 2. Fetch purchase orders
+    pos = db.collection("purchase_orders").where("project_id", "==", project_id).stream()
+    p["purchase_orders"] = []
+    for po in pos:
+        po_data = po.to_dict()
+        po_data["id"] = po.id
+        p["purchase_orders"].append(po_data)
+        
+    # 3. Fetch documents
+    docs = db.collection("documents").where("project_id", "==", project_id).stream()
+    p["documents"] = []
+    for doc in docs:
+        doc_data = doc.to_dict()
+        doc_data["id"] = doc.id
+        p["documents"].append(doc_data)
+        
+    return p
+
+# Helper function to populate PO project information
+def populate_po_project(db, po):
+    if not po:
+        return None
+    project_id = po.get("project_id")
+    if project_id:
+        po["project"] = crud.get_project(db, project_id)
+    else:
+        po["project"] = None
+    return po
 
 
 # Authentication Routes
 @app.post("/api/auth/register", response_model=schemas.UserResponse)
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def register(user: schemas.UserCreate, db = Depends(get_db)):
     db_user = crud.get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     return crud.create_user(db=db, user=user)
 
 @app.post("/api/auth/login", response_model=schemas.Token)
-def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
-    user = crud.get_user_by_username(db, username=user_credentials.username)
-    if not user or not crud.verify_password(user_credentials.password, user.hashed_password):
+def login(user_credentials: schemas.UserLogin, db = Depends(get_db)):
+    user_dict = crud.get_user_by_username(db, username=user_credentials.username)
+    if not user_dict or not crud.verify_password(user_credentials.password, user_dict.get("hashed_password", "")):
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     
+    user = excel_export.DictObject(user_dict)
     if not user.is_active:
         raise HTTPException(
             status_code=400, 
-            detail="บัญชีผู้ใช้งานนี้ยังไม่ได้รับการอนุมัติจากผู้ดูแลระบบ (Admin) หรือถูกระงับสิทธิ์เข้าใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่ออนุมัติสิทธิ์เข้าใช้งาน"
+            detail="บัญชีผู้ใช้งานนี้ยังไม่ได้รับการอนุมัติจากผู้ดูแลระบบ (Admin) หรือถูกระงับสิทธิ์เข้าใช้งาน"
         )
         
     access_token = create_access_token(data={"sub": user.username})
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user
+        "user": user_dict
     }
 
 @app.get("/api/auth/me", response_model=schemas.UserResponse)
-def get_me(username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def get_me(username: str = Depends(get_current_user_username), db = Depends(get_db)):
     user = crud.get_user_by_username(db, username=username)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -288,53 +272,70 @@ def get_me(username: str = Depends(get_current_user_username), db: Session = Dep
 
 # User Management Endpoints (Admin Only)
 @app.get("/api/users", response_model=List[schemas.UserResponse])
-def get_all_users(current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
-    return db.query(models.User).all()
+def get_all_users(current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    if db is None:
+        return []
+    docs = db.collection("users").stream()
+    users = []
+    for doc in docs:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        users.append(data)
+    return users
 
 @app.delete("/api/users/{user_id}")
-def delete_user(user_id: int, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
-    if current_admin.id == user_id:
+def delete_user(user_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    admin = excel_export.DictObject(current_admin)
+    if admin.id == user_id:
         raise HTTPException(status_code=400, detail="ไม่สามารถลบบัญชีผู้ใช้งานของตนเองได้")
     
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งานในระบบ")
+    doc_ref = db.collection("users").document(user_id)
+    if not doc_ref.get().exists:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้ในระบบ")
         
-    db.delete(db_user)
-    db.commit()
+    doc_ref.delete()
     return {"detail": "User deleted successfully"}
 
 @app.put("/api/users/{user_id}/toggle-active", response_model=schemas.UserResponse)
-def toggle_user_active(user_id: int, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
-    if current_admin.id == user_id:
+def toggle_user_active(user_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    admin = excel_export.DictObject(current_admin)
+    if admin.id == user_id:
         raise HTTPException(status_code=400, detail="ไม่สามารถระงับสิทธิ์บัญชีผู้ใช้งานของตนเองได้")
         
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งานในระบบ")
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้ในระบบ")
         
-    db_user.is_active = not db_user.is_active
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    user_data = doc.to_dict()
+    new_active = not user_data.get("is_active", True)
+    doc_ref.update({"is_active": new_active})
+    
+    user_data["is_active"] = new_active
+    user_data["id"] = doc.id
+    return user_data
 
 @app.put("/api/users/{user_id}/reset-password")
-def reset_user_password(user_id: int, payload: schemas.UserResetPassword, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งานในระบบ")
+def reset_user_password(user_id: str, payload: schemas.UserResetPassword, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้ในระบบ")
         
-    db_user.hashed_password = crud.get_password_hash(payload.new_password)
-    db.commit()
-    return {"detail": f"เปลี่ยนรหัสผ่านสำหรับผู้ใช้งาน {db_user.username} เรียบร้อยแล้ว"}
+    hashed_pwd = crud.get_password_hash(payload.new_password)
+    doc_ref.update({"hashed_password": hashed_pwd})
+    return {"detail": f"เปลี่ยนรหัสผ่านสำหรับผู้ใช้งาน {user_id} เรียบร้อยแล้ว"}
 
 @app.get("/api/admin/disk-usage")
 def get_disk_usage(current_admin = Depends(check_admin_role)):
-    import shutil
-    import os
-    persistent_dir = "/data" if os.path.exists("/data") and os.path.isdir("/data") else "."
     try:
-        total, used, free = shutil.disk_usage(persistent_dir)
+        total, used, free = shutil.disk_usage(PERSISTENT_DIR)
         return {
             "total_bytes": total,
             "used_bytes": used,
@@ -347,149 +348,162 @@ def get_disk_usage(current_admin = Depends(check_admin_role)):
 @app.get("/api/audit-logs", response_model=List[schemas.AuditLogResponse])
 def get_audit_logs(
     username: str = Depends(get_current_user_username),
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
+    if db is None:
+        return []
     user = crud.get_user_by_username(db, username=username)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    if user.role == "admin":
-        return db.query(models.AuditLog).order_by(models.AuditLog.timestamp.desc()).all()
+    logs_ref = db.collection("audit_logs")
+    if user.get("role") == "admin":
+        docs = logs_ref.stream()
     else:
-        return db.query(models.AuditLog).filter(models.AuditLog.username == username).order_by(models.AuditLog.timestamp.desc()).all()
+        docs = logs_ref.where("username", "==", username).stream()
+        
+    logs = []
+    for doc in docs:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        logs.append(data)
+        
+    logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return logs
 
 
-# Dashboard Endpoints (Secured)
+# Dashboard Endpoints
 @app.get("/api/dashboard/stats", response_model=schemas.DashboardStats)
-def get_dashboard_stats(username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def get_dashboard_stats(username: str = Depends(get_current_user_username), db = Depends(get_db)):
     return crud.get_dashboard_stats(db)
 
 @app.get("/api/dashboard/alerts", response_model=List[schemas.DashboardAlert])
-def get_dashboard_alerts(username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def get_dashboard_alerts(username: str = Depends(get_current_user_username), db = Depends(get_db)):
     return crud.get_dashboard_alerts(db)
 
 @app.get("/api/dashboard/po-alerts", response_model=List[schemas.DashboardPOAlert])
-def get_dashboard_po_alerts(username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def get_dashboard_po_alerts(username: str = Depends(get_current_user_username), db = Depends(get_db)):
     return crud.get_dashboard_po_alerts(db)
 
 
-# Project Endpoints (Secured)
+# Project Endpoints
 @app.get("/api/projects", response_model=List[schemas.Project])
-def read_projects(skip: int = 0, limit: int = 100, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
-    return crud.get_projects(db, skip=skip, limit=limit)
+def read_projects(skip: int = 0, limit: int = 100, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+    projects = crud.get_projects(db, skip=skip, limit=limit)
+    return [populate_project_relations(db, p) for p in projects]
 
 @app.get("/api/projects/{project_id}", response_model=schemas.Project)
-def read_project(project_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def read_project(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_project = crud.get_project(db, project_id=project_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return db_project
+    return populate_project_relations(db, db_project)
 
 @app.post("/api/projects", response_model=schemas.Project)
-def create_project(project: schemas.ProjectCreate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def create_project(project: schemas.ProjectCreate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_project = crud.create_project(db=db, project=project, username=username)
-    crud.log_user_action(db, username, "สร้าง", "โครงการ", db_project.name, f"งบประมาณ: {db_project.budget} บาท")
-    return db_project
+    crud.log_user_action(db, username, "สร้าง", "โครงการ", db_project.get("name"), f"งบประมาณ: {db_project.get('budget')} บาท")
+    return populate_project_relations(db, db_project)
 
 @app.put("/api/projects/{project_id}", response_model=schemas.Project)
-def update_project(project_id: int, project: schemas.ProjectUpdate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def update_project(project_id: str, project: schemas.ProjectUpdate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_project_old = crud.get_project(db, project_id)
     if not db_project_old:
         raise HTTPException(status_code=404, detail="Project not found")
     db_project = crud.update_project(db=db, project_id=project_id, project=project, username=username)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    crud.log_user_action(db, username, "แก้ไข", "โครงการ", db_project.name, "แก้ไขข้อมูลโครงการ")
-    return db_project
+    crud.log_user_action(db, username, "แก้ไข", "โครงการ", db_project.get("name"), "แก้ไขข้อมูลโครงการ")
+    return populate_project_relations(db, db_project)
 
 @app.delete("/api/projects/{project_id}")
-def delete_project(project_id: int, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
+def delete_project(project_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    crud.log_user_action(db, current_admin.username, "ลบ", "โครงการ", db_project.name, f"ลบโครงการ ID: {project_id}")
+    crud.log_user_action(db, current_admin.username, "ลบ", "โครงการ", db_project.get("name"), f"ลบโครงการ ID: {project_id}")
     success = crud.delete_project(db=db, project_id=project_id)
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"detail": "Project deleted successfully"}
 
 
-# Deliverables Endpoints (Secured)
+# Deliverables Endpoints
 @app.post("/api/projects/{project_id}/deliverables", response_model=schemas.Deliverable)
-def create_project_deliverable(project_id: int, deliverable: schemas.DeliverableCreate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def create_project_deliverable(project_id: str, deliverable: schemas.DeliverableCreate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
     db_deliverable = crud.create_deliverable(db=db, deliverable=deliverable, project_id=project_id, username=username)
-    crud.log_user_action(db, username, "สร้าง", "งวดงานสัญญาหลัก", db_deliverable.name, f"สร้างงวดงานในโครงการ '{db_project.name}'")
+    crud.log_user_action(db, username, "สร้าง", "งวดงานสัญญาหลัก", db_deliverable.get("name"), f"สร้างงวดงานในโครงการ '{db_project.get('name')}'")
     return db_deliverable
 
 @app.put("/api/deliverables/{deliverable_id}", response_model=schemas.Deliverable)
-def update_deliverable(deliverable_id: int, deliverable: schemas.DeliverableUpdate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
-    db_del = db.query(models.Deliverable).filter(models.Deliverable.id == deliverable_id).first()
+def update_deliverable(deliverable_id: str, deliverable: schemas.DeliverableUpdate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+    db_del = crud.get_deliverable(db, deliverable_id)
     if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
     db_deliverable = crud.update_deliverable(db=db, deliverable_id=deliverable_id, deliverable=deliverable, username=username)
-    crud.log_user_action(db, username, "แก้ไข", "งวดงานสัญญาหลัก", db_deliverable.name, f"แก้ไขรายละเอียดงวดงาน (สถานะ: {db_deliverable.status})")
+    crud.log_user_action(db, username, "แก้ไข", "งวดงานสัญญาหลัก", db_deliverable.get("name"), f"แก้ไขรายละเอียดงวดงาน (สถานะ: {db_deliverable.get('status')})")
     return db_deliverable
 
 @app.delete("/api/deliverables/{deliverable_id}")
-def delete_deliverable(deliverable_id: int, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
-    db_del = db.query(models.Deliverable).filter(models.Deliverable.id == deliverable_id).first()
+def delete_deliverable(deliverable_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    db_del = crud.get_deliverable(db, deliverable_id)
     if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
-    crud.log_user_action(db, current_admin.username, "ลบ", "งวดงานสัญญาหลัก", db_del.name, f"ลบงวดงาน ID: {deliverable_id}")
+    crud.log_user_action(db, current_admin.username, "ลบ", "งวดงานสัญญาหลัก", db_del.get("name"), f"ลบงวดงาน ID: {deliverable_id}")
     success = crud.delete_deliverable(db=db, deliverable_id=deliverable_id)
     if not success:
         raise HTTPException(status_code=404, detail="Deliverable not found")
     return {"detail": "Deliverable deleted successfully"}
 
 
-# Purchase Order (PO) Endpoints (Secured V4)
+# Purchase Order (PO) Endpoints
 @app.get("/api/purchase-orders", response_model=List[schemas.PurchaseOrder])
-def read_purchase_orders(username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def read_purchase_orders(username: str = Depends(get_current_user_username), db = Depends(get_db)):
     return crud.get_purchase_orders(db)
 
 @app.get("/api/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
-def read_purchase_order(po_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def read_purchase_order(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
     return db_po
 
 @app.post("/api/projects/{project_id}/purchase-orders", response_model=schemas.PurchaseOrder)
-def create_purchase_order(project_id: int, po: schemas.PurchaseOrderCreate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def create_purchase_order(project_id: str, po: schemas.PurchaseOrderCreate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
     db_po = crud.create_purchase_order(db=db, po=po, project_id=project_id, username=username)
-    crud.log_user_action(db, username, "สร้าง", "ใบสั่งซื้อ PO", db_po.po_number, f"สร้างใบสั่งซื้อ PO งบประมาณ: {db_po.budget} บาท ในโครงการ '{db_project.name}'")
+    crud.log_user_action(db, username, "สร้าง", "ใบสั่งซื้อ PO", db_po.get("po_number"), f"สร้างใบสั่งซื้อ PO งบประมาณ: {db_po.get('budget')} บาท ในโครงการ '{db_project.get('name')}'")
     return db_po
 
 @app.put("/api/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
-def update_purchase_order(po_id: int, po: schemas.PurchaseOrderUpdate, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
-    db_po_old = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == po_id).first()
+def update_purchase_order(po_id: str, po: schemas.PurchaseOrderUpdate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+    db_po_old = crud.get_purchase_order(db, po_id)
     if not db_po_old:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    old_delivery_status = db_po_old.delivery_status
+    old_delivery_status = db_po_old.get("delivery_status")
     
     db_po = crud.update_purchase_order(db=db, po_id=po_id, po=po, username=username)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
-    if old_delivery_status != db_po.delivery_status:
-        crud.log_user_action(db, username, "แก้ไข", "ใบส่งมอบของ", f"PO: {db_po.po_number}", f"ปรับปรุงการส่งมอบเป็น '{db_po.delivery_status}' (เลขที่ใบส่งของ: {db_po.delivery_no or '-'})")
+    if old_delivery_status != db_po.get("delivery_status"):
+        crud.log_user_action(db, username, "แก้ไข", "ใบส่งมอบของ", f"PO: {db_po.get('po_number')}", f"ปรับปรุงการส่งมอบเป็น '{db_po.get('delivery_status')}' (เลขที่ใบส่งของ: {db_po.get('delivery_no') or '-'})")
     else:
-        crud.log_user_action(db, username, "แก้ไข", "ใบสั่งซื้อ PO", db_po.po_number, "แก้ไขรายละเอียดใบสั่งซื้อ")
+        crud.log_user_action(db, username, "แก้ไข", "ใบสั่งซื้อ PO", db_po.get("po_number"), "แก้ไขรายละเอียดใบสั่งซื้อ")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}")
-def delete_purchase_order(po_id: int, current_admin = Depends(check_admin_role), db: Session = Depends(get_db)):
+def delete_purchase_order(po_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
     
-    for path in [db_po.po_file_path, db_po.quotation_file_path, db_po.delivery_file_path]:
+    for path in [db_po.get("po_file_path"), db_po.get("quotation_file_path"), db_po.get("delivery_file_path")]:
         if path:
             filename = os.path.basename(path)
             for folder in [UPLOAD_PO_DIR, UPLOAD_DELIVERY_DIR, UPLOAD_DIR]:
@@ -501,22 +515,21 @@ def delete_purchase_order(po_id: int, current_admin = Depends(check_admin_role),
                     except Exception:
                         pass
                         
-    crud.log_user_action(db, current_admin.username, "ลบ", "ใบสั่งซื้อ PO", db_po.po_number, f"ลบใบสั่งซื้อ ID: {po_id}")
+    crud.log_user_action(db, current_admin.username, "ลบ", "ใบสั่งซื้อ PO", db_po.get("po_number"), f"ลบใบสั่งซื้อ ID: {po_id}")
     success = crud.delete_purchase_order(db=db, po_id=po_id)
     if not success:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
     return {"detail": "Purchase Order deleted successfully"}
 
 
-# PO Document Files Upload (Secured V4)
+# PO Document Files Upload
 @app.post("/api/purchase-orders/{po_id}/po-file", response_model=schemas.PurchaseOrder)
-def upload_po_file(po_id: int, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def upload_po_file(po_id: str, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
     validate_uploaded_file(file)
-    
     try:
         file_content = file.file.read()
         file.file.seek(0)
@@ -524,9 +537,8 @@ def upload_po_file(po_id: int, file: UploadFile = File(...), username: str = Dep
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
     supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "pos", file.content_type)
-    
     if supabase_url:
-        db_po.po_file_path = supabase_url
+        po_file_path = supabase_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"po_{timestamp}_{file.filename}"
@@ -536,50 +548,57 @@ def upload_po_file(po_id: int, file: UploadFile = File(...), username: str = Dep
                 buffer.write(file_content)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-        db_po.po_file_path = f"/uploads/pos/{safe_filename}"
+        po_file_path = f"/uploads/pos/{safe_filename}"
         
-    db_po.po_file_filename = file.filename
-    db_po.updated_by = username
-    db_po.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_po)
-    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบสั่งซื้อ PO", file.filename, f"อัปโหลดไฟล์ใบสั่งซื้อสำหรับ PO: {db_po.po_number}")
+    update_data = {
+        "po_file_path": po_file_path,
+        "po_file_filename": file.filename,
+        "updated_by": username,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    db.collection("purchase_orders").document(po_id).update(update_data)
+    
+    db_po.update(update_data)
+    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบสั่งซื้อ PO", file.filename, f"อัปโหลดไฟล์ใบสั่งซื้อสำหรับ PO: {db_po.get('po_number')}")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/po-file", response_model=schemas.PurchaseOrder)
-def delete_po_file(po_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def delete_po_file(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
-    if db_po.po_file_path:
-        delete_from_supabase_if_configured(db_po.po_file_path)
+    po_file_path = db_po.get("po_file_path")
+    if po_file_path:
+        delete_from_supabase_if_configured(po_file_path)
         
-        filename = os.path.basename(db_po.po_file_path)
+        filename = os.path.basename(po_file_path)
         file_path = os.path.join(UPLOAD_PO_DIR, filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:
                 pass
-        orig_filename = db_po.po_file_filename
-        db_po.po_file_path = None
-        db_po.po_file_filename = None
-        db_po.updated_by = username
-        db_po.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(db_po)
-        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบสั่งซื้อ PO", orig_filename, f"ลบไฟล์ใบสั่งซื้อสำหรับ PO: {db_po.po_number}")
+                
+        orig_filename = db_po.get("po_file_filename")
+        update_data = {
+            "po_file_path": None,
+            "po_file_filename": None,
+            "updated_by": username,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        db.collection("purchase_orders").document(po_id).update(update_data)
+        db_po.update(update_data)
+        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบสั่งซื้อ PO", orig_filename, f"ลบไฟล์ใบสั่งซื้อสำหรับ PO: {db_po.get('po_number')}")
     return db_po
 
 @app.post("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
-def upload_quotation_file(po_id: int, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def upload_quotation_file(po_id: str, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
     validate_uploaded_file(file)
-    
     try:
         file_content = file.file.read()
         file.file.seek(0)
@@ -587,9 +606,8 @@ def upload_quotation_file(po_id: int, file: UploadFile = File(...), username: st
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
     supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "pos", file.content_type)
-    
     if supabase_url:
-        db_po.quotation_file_path = supabase_url
+        quotation_file_path = supabase_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"quot_{timestamp}_{file.filename}"
@@ -599,52 +617,57 @@ def upload_quotation_file(po_id: int, file: UploadFile = File(...), username: st
                 buffer.write(file_content)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-        db_po.quotation_file_path = f"/uploads/pos/{safe_filename}"
+        quotation_file_path = f"/uploads/pos/{safe_filename}"
         
-    db_po.quotation_file_filename = file.filename
-    db_po.updated_by = username
-    db_po.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_po)
-    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบเสนอราคา PO", file.filename, f"อัปโหลดไฟล์ใบเสนอราคาสำหรับ PO: {db_po.po_number}")
+    update_data = {
+        "quotation_file_path": quotation_file_path,
+        "quotation_file_filename": file.filename,
+        "updated_by": username,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    db.collection("purchase_orders").document(po_id).update(update_data)
+    
+    db_po.update(update_data)
+    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบเสนอราคา PO", file.filename, f"อัปโหลดไฟล์ใบเสนอราคาสำหรับ PO: {db_po.get('po_number')}")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
-def delete_quotation_file(po_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def delete_quotation_file(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
-    if db_po.quotation_file_path:
-        delete_from_supabase_if_configured(db_po.quotation_file_path)
+    quot_path = db_po.get("quotation_file_path")
+    if quot_path:
+        delete_from_supabase_if_configured(quot_path)
         
-        filename = os.path.basename(db_po.quotation_file_path)
+        filename = os.path.basename(quot_path)
         file_path = os.path.join(UPLOAD_PO_DIR, filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:
                 pass
-        orig_filename = db_po.quotation_file_filename
-        db_po.quotation_file_path = None
-        db_po.quotation_file_filename = None
-        db_po.updated_by = username
-        db_po.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(db_po)
-        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบเสนอราคา PO", orig_filename, f"ลบไฟล์ใบเสนอราคาสำหรับ PO: {db_po.po_number}")
+                
+        orig_filename = db_po.get("quotation_file_filename")
+        update_data = {
+            "quotation_file_path": None,
+            "quotation_file_filename": None,
+            "updated_by": username,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        db.collection("purchase_orders").document(po_id).update(update_data)
+        db_po.update(update_data)
+        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบเสนอราคา PO", orig_filename, f"ลบไฟล์ใบเสนอราคาสำหรับ PO: {db_po.get('po_number')}")
     return db_po
 
-
-# PO Delivery File Upload (Secured V4)
 @app.post("/api/purchase-orders/{po_id}/delivery-file", response_model=schemas.PurchaseOrder)
-def upload_delivery_file(po_id: int, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def upload_delivery_file(po_id: str, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
     validate_uploaded_file(file)
-    
     try:
         file_content = file.file.read()
         file.file.seek(0)
@@ -652,9 +675,8 @@ def upload_delivery_file(po_id: int, file: UploadFile = File(...), username: str
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
     supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "deliveries", file.content_type)
-    
     if supabase_url:
-        db_po.delivery_file_path = supabase_url
+        delivery_file_path = supabase_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"delivery_{timestamp}_{file.filename}"
@@ -664,50 +686,58 @@ def upload_delivery_file(po_id: int, file: UploadFile = File(...), username: str
                 buffer.write(file_content)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-        db_po.delivery_file_path = f"/uploads/deliveries/{safe_filename}"
+        delivery_file_path = f"/uploads/deliveries/{safe_filename}"
         
-    db_po.delivery_file_filename = file.filename
-    db_po.updated_by = username
-    db_po.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_po)
-    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบส่งของ PO", file.filename, f"อัปโหลดไฟล์ใบส่งของสำหรับ PO: {db_po.po_number}")
+    update_data = {
+        "delivery_file_path": delivery_file_path,
+        "delivery_file_filename": file.filename,
+        "updated_by": username,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    db.collection("purchase_orders").document(po_id).update(update_data)
+    
+    db_po.update(update_data)
+    crud.log_user_action(db, username, "สร้าง", "ไฟล์ใบส่งของ PO", file.filename, f"อัปโหลดไฟล์ใบส่งของสำหรับ PO: {db_po.get('po_number')}")
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/delivery-file", response_model=schemas.PurchaseOrder)
-def delete_delivery_file(po_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def delete_delivery_file(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
-    if db_po.delivery_file_path:
-        delete_from_supabase_if_configured(db_po.delivery_file_path)
+    deliv_path = db_po.get("delivery_file_path")
+    if deliv_path:
+        delete_from_supabase_if_configured(deliv_path)
         
-        filename = os.path.basename(db_po.delivery_file_path)
+        filename = os.path.basename(deliv_path)
         file_path = os.path.join(UPLOAD_DELIVERY_DIR, filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:
                 pass
-        orig_filename = db_po.delivery_file_filename
-        db_po.delivery_file_path = None
-        db_po.delivery_file_filename = None
-        db_po.updated_by = username
-        db_po.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(db_po)
-        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบส่งของ PO", orig_filename, f"ลบไฟล์ใบส่งของสำหรับ PO: {db_po.po_number}")
+                
+        orig_filename = db_po.get("delivery_file_filename")
+        update_data = {
+            "delivery_file_path": None,
+            "delivery_file_filename": None,
+            "updated_by": username,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        db.collection("purchase_orders").document(po_id).update(update_data)
+        db_po.update(update_data)
+        crud.log_user_action(db, username, "ลบ", "ไฟล์ใบส่งของ PO", orig_filename, f"ลบไฟล์ใบส่งของสำหรับ PO: {db_po.get('po_number')}")
     return db_po
 
 
-# Contract Documents (Secured)
+# Contract Documents Upload
 @app.post("/api/projects/{project_id}/documents", response_model=schemas.Document)
 def upload_document(
-    project_id: int,
+    project_id: str,
     file: UploadFile = File(...),
     username: str = Depends(get_current_user_username),
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
@@ -720,7 +750,6 @@ def upload_document(
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
     supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "documents", file.content_type)
-    
     if supabase_url:
         url_path = supabase_url
     else:
@@ -743,129 +772,60 @@ def upload_document(
         url_path=url_path
     )
     
-    db_project.updated_by = username
-    db_project.updated_at = datetime.utcnow()
-    db.commit()
+    db.collection("projects").document(project_id).update({
+        "updated_by": username,
+        "updated_at": datetime.utcnow().isoformat()
+    })
     
     db_doc = crud.create_document(db=db, document=doc_schema, project_id=project_id)
-    crud.log_user_action(db, username, "สร้าง", "เอกสารสัญญา", file.filename, f"อัปโหลดไฟล์เอกสารสัญญาในโครงการ '{db_project.name}'")
+    crud.log_user_action(db, username, "สร้าง", "เอกสารแนบสัญญา", file.filename, f"อัปโหลดเอกสารแนบสัญญาโครงการ '{db_project.get('name')}'")
     return db_doc
 
 @app.delete("/api/documents/{document_id}")
-def delete_document(document_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def delete_document(document_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_doc = crud.get_document(db, document_id=document_id)
     if not db_doc:
         raise HTTPException(status_code=404, detail="Document not found")
         
-    delete_from_supabase_if_configured(db_doc.url_path)
-    
-    filename = os.path.basename(db_doc.url_path)
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(file_path):
-        try:
-            os.remove(file_path)
-        except Exception:
-            pass
-            
-    # Update project audit
-    db_project = crud.get_project(db, db_doc.project_id)
-    if db_project:
-        db_project.updated_by = username
-        db_project.updated_at = datetime.utcnow()
-        db.commit()
-            
-    orig_filename = db_doc.filename
-    success = crud.delete_document(db=db, document_id=document_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Document not found")
-    crud.log_user_action(db, username, "ลบ", "เอกสารสัญญา", orig_filename, f"ลบไฟล์เอกสารสัญญาออกจากระบบ")
-    return {"detail": "Document deleted successfully"}
-
-
-# Guarantee Receipt (Secured)
-@app.post("/api/projects/{project_id}/guarantee-receipt", response_model=schemas.Project)
-def upload_guarantee_receipt(
-    project_id: int,
-    file: UploadFile = File(...),
-    username: str = Depends(get_current_user_username),
-    db: Session = Depends(get_db)
-):
-    db_project = crud.get_project(db, project_id=project_id)
-    if not db_project:
-        raise HTTPException(status_code=404, detail="Project not found")
-        
-    validate_uploaded_file(file)
-    
-    try:
-        file_content = file.file.read()
-        file.file.seek(0)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
-        
-    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "guarantees", file.content_type)
-    
-    if supabase_url:
-        db_project.guarantee_receipt_path = supabase_url
-    else:
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        safe_filename = f"receipt_{timestamp}_{file.filename}"
-        file_path = os.path.join(UPLOAD_DIR, safe_filename)
-        try:
-            with open(file_path, "wb") as buffer:
-                buffer.write(file_content)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-        db_project.guarantee_receipt_path = f"/uploads/{safe_filename}"
-        
-    db_project.guarantee_receipt_filename = file.filename
-    db_project.updated_by = username
-    db_project.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_project)
-    crud.log_user_action(db, username, "สร้าง", "ใบเสร็จค้ำประกัน", file.filename, f"อัปโหลดใบเสร็จค้ำประกันโครงการ '{db_project.name}'")
-    return db_project
-
-@app.delete("/api/projects/{project_id}/guarantee-receipt", response_model=schemas.Project)
-def delete_guarantee_receipt(project_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
-    db_project = crud.get_project(db, project_id=project_id)
-    if not db_project:
-        raise HTTPException(status_code=404, detail="Project not found")
-        
-    if db_project.guarantee_receipt_path:
-        delete_from_supabase_if_configured(db_project.guarantee_receipt_path)
-        
-        filename = os.path.basename(db_project.guarantee_receipt_path)
+    url_path = db_doc.get("url_path")
+    if url_path:
+        delete_from_supabase_if_configured(url_path)
+        filename = os.path.basename(url_path)
         file_path = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:
                 pass
-        orig_filename = db_project.guarantee_receipt_filename
-        db_project.guarantee_receipt_path = None
-        db_project.guarantee_receipt_filename = None
-        db_project.updated_by = username
-        db_project.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(db_project)
-        crud.log_user_action(db, username, "ลบ", "ใบเสร็จค้ำประกัน", orig_filename, f"ลบใบเสร็จค้ำประกันโครงการ '{db_project.name}'")
-    return db_project
+                
+    project_id = db_doc.get("project_id")
+    db_project = crud.get_project(db, project_id)
+    if db_project:
+        db.collection("projects").document(project_id).update({
+            "updated_by": username,
+            "updated_at": datetime.utcnow().isoformat()
+        })
+        
+    crud.log_user_action(db, username, "ลบ", "เอกสารแนบสัญญา", db_doc.get("filename"), f"ลบเอกสารแนบสัญญาโครงการ '{db_project.get('name') if db_project else '-'}'")
+    success = crud.delete_document(db=db, document_id=document_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"detail": "Document deleted successfully"}
 
 
-# Guarantee Document - LG / Slip (Secured)
-@app.post("/api/projects/{project_id}/guarantee-document", response_model=schemas.Project)
-def upload_guarantee_document(
-    project_id: int,
+# Guarantee Receipt and Document Uploads
+@app.post("/api/projects/{project_id}/guarantee-receipt", response_model=schemas.Project)
+def upload_guarantee_receipt(
+    project_id: str,
     file: UploadFile = File(...),
     username: str = Depends(get_current_user_username),
-    db: Session = Depends(get_db)
+    db = Depends(get_db)
 ):
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
         
     validate_uploaded_file(file)
-    
     try:
         file_content = file.file.read()
         file.file.seek(0)
@@ -873,9 +833,81 @@ def upload_guarantee_document(
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
     supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "guarantees", file.content_type)
-    
     if supabase_url:
-        db_project.guarantee_document_path = supabase_url
+        guarantee_receipt_path = supabase_url
+    else:
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_filename = f"guar_rec_{timestamp}_{file.filename}"
+        file_path = os.path.join(UPLOAD_DIR, safe_filename)
+        try:
+            with open(file_path, "wb") as buffer:
+                buffer.write(file_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        guarantee_receipt_path = f"/uploads/{safe_filename}"
+        
+    update_data = {
+        "guarantee_receipt_path": guarantee_receipt_path,
+        "guarantee_receipt_filename": file.filename,
+        "updated_by": username,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    db.collection("projects").document(project_id).update(update_data)
+    db_project.update(update_data)
+    
+    crud.log_user_action(db, username, "สร้าง", "ใบเสร็จค้ำประกัน", file.filename, f"อัปโหลดหลักฐานใบเสร็จค้ำประกันโครงการ '{db_project.get('name')}'")
+    return populate_project_relations(db, db_project)
+
+@app.delete("/api/projects/{project_id}/guarantee-receipt", response_model=schemas.Project)
+def delete_guarantee_receipt(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+    db_project = crud.get_project(db, project_id=project_id)
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    receipt_path = db_project.get("guarantee_receipt_path")
+    if receipt_path:
+        delete_from_supabase_if_configured(receipt_path)
+        filename = os.path.basename(receipt_path)
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+                
+        orig_filename = db_project.get("guarantee_receipt_filename")
+        update_data = {
+            "guarantee_receipt_path": None,
+            "guarantee_receipt_filename": None,
+            "updated_by": username,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        db.collection("projects").document(project_id).update(update_data)
+        db_project.update(update_data)
+        crud.log_user_action(db, username, "ลบ", "ใบเสร็จค้ำประกัน", orig_filename, f"ลบใบเสร็จค้ำประกันโครงการ '{db_project.get('name')}'")
+    return populate_project_relations(db, db_project)
+
+@app.post("/api/projects/{project_id}/guarantee-document", response_model=schemas.Project)
+def upload_guarantee_document(
+    project_id: str,
+    file: UploadFile = File(...),
+    username: str = Depends(get_current_user_username),
+    db = Depends(get_db)
+):
+    db_project = crud.get_project(db, project_id=project_id)
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    validate_uploaded_file(file)
+    try:
+        file_content = file.file.read()
+        file.file.seek(0)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
+        
+    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "guarantees", file.content_type)
+    if supabase_url:
+        guarantee_document_path = supabase_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"guar_doc_{timestamp}_{file.filename}"
@@ -885,68 +917,73 @@ def upload_guarantee_document(
                 buffer.write(file_content)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-        db_project.guarantee_document_path = f"/uploads/{safe_filename}"
+        guarantee_document_path = f"/uploads/{safe_filename}"
         
-    db_project.guarantee_document_filename = file.filename
-    db_project.updated_by = username
-    db_project.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_project)
-    crud.log_user_action(db, username, "สร้าง", "หลักฐานการค้ำประกัน", file.filename, f"อัปโหลดหลักฐานการค้ำประกันโครงการ '{db_project.name}'")
-    return db_project
+    update_data = {
+        "guarantee_document_path": guarantee_document_path,
+        "guarantee_document_filename": file.filename,
+        "updated_by": username,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+    db.collection("projects").document(project_id).update(update_data)
+    db_project.update(update_data)
+    
+    crud.log_user_action(db, username, "สร้าง", "หลักฐานการค้ำประกัน", file.filename, f"อัปโหลดหลักฐานการค้ำประกันโครงการ '{db_project.get('name')}'")
+    return populate_project_relations(db, db_project)
 
 @app.delete("/api/projects/{project_id}/guarantee-document", response_model=schemas.Project)
-def delete_guarantee_document(project_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def delete_guarantee_document(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    if db_project.guarantee_document_path:
-        delete_from_supabase_if_configured(db_project.guarantee_document_path)
-        
-        filename = os.path.basename(db_project.guarantee_document_path)
+    doc_path = db_project.get("guarantee_document_path")
+    if doc_path:
+        delete_from_supabase_if_configured(doc_path)
+        filename = os.path.basename(doc_path)
         file_path = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:
                 pass
-        orig_filename = db_project.guarantee_document_filename
-        db_project.guarantee_document_path = None
-        db_project.guarantee_document_filename = None
-        db_project.updated_by = username
-        db_project.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(db_project)
-        crud.log_user_action(db, username, "ลบ", "หลักฐานการค้ำประกัน", orig_filename, f"ลบหลักฐานการค้ำประกันโครงการ '{db_project.name}'")
-    return db_project
+                
+        orig_filename = db_project.get("guarantee_document_filename")
+        update_data = {
+            "guarantee_document_path": None,
+            "guarantee_document_filename": None,
+            "updated_by": username,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        db.collection("projects").document(project_id).update(update_data)
+        db_project.update(update_data)
+        crud.log_user_action(db, username, "ลบ", "หลักฐานการค้ำประกัน", orig_filename, f"ลบหลักฐานการค้ำประกันโครงการ '{db_project.get('name')}'")
+    return populate_project_relations(db, db_project)
 
 
 # Excel Export Endpoints
 @app.get("/api/exports/projects/excel")
-def export_projects_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def export_projects_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     try:
         projects = crud.get_projects(db, skip=0, limit=1000)
         filtered = []
         for p in projects:
             if status and status != "ทั้งหมด":
-                if p.status != status:
+                if p.get("status") != status:
                     continue
             if query:
                 q = query.lower()
-                name_match = q in p.name.lower()
-                owner_match = q in p.owner.lower()
-                contractor_match = p.contractor and (q in p.contractor.lower())
-                job_type_match = p.job_type and (q in p.job_type.lower())
-                fiscal_year_match = p.fiscal_year and (q in str(p.fiscal_year))
-                status_match = q in p.status.lower()
+                name_match = q in p.get("name", "").lower()
+                owner_match = q in p.get("owner", "").lower()
+                contractor_match = p.get("contractor") and (q in p.get("contractor").lower())
+                job_type_match = p.get("job_type") and (q in p.get("job_type").lower())
+                fiscal_year_match = p.get("fiscal_year") and (q in str(p.get("fiscal_year")))
+                status_match = q in p.get("status", "").lower()
                 if not (name_match or owner_match or contractor_match or job_type_match or fiscal_year_match or status_match):
                     continue
             filtered.append(p)
             
         excel_file = excel_export.export_projects_to_excel(filtered)
-        
-        from fastapi.responses import StreamingResponse
         headers = {
             'Content-Disposition': 'attachment; filename="projects_summary.xlsx"'
         }
@@ -957,30 +994,31 @@ def export_projects_excel(query: Optional[str] = None, status: Optional[str] = N
         raise HTTPException(status_code=500, detail=f"Error exporting projects Excel: {str(e)}")
 
 @app.get("/api/exports/purchase-orders/excel")
-def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     try:
         pos = crud.get_purchase_orders(db)
         filtered = []
         for po in pos:
+            po = populate_po_project(db, po)
             if status and status != "ทั้งหมด":
-                if po.delivery_status != status:
+                if po.get("delivery_status") != status:
                     continue
             if query:
                 q = query.lower()
-                proj_name = po.project.name.lower() if po.project else ""
-                owner = po.project.owner.lower() if po.project else ""
-                po_number_match = q in po.po_number.lower()
+                project_info = po.get("project")
+                proj_name = project_info.get("name", "").lower() if project_info else ""
+                owner = project_info.get("owner", "").lower() if project_info else ""
+                
+                po_number_match = q in po.get("po_number", "").lower()
                 proj_match = q in proj_name
                 owner_match = q in owner
-                contractor_match = q in po.contractor.lower()
-                material_match = q in po.material_type.lower()
+                contractor_match = q in po.get("contractor", "").lower()
+                material_match = q in po.get("material_type", "").lower()
                 if not (po_number_match or proj_match or owner_match or contractor_match or material_match):
                     continue
             filtered.append(po)
             
         excel_file = excel_export.export_purchase_orders_to_excel(filtered)
-        
-        from fastapi.responses import StreamingResponse
         headers = {
             'Content-Disposition': 'attachment; filename="purchase_orders_summary.xlsx"'
         }
@@ -991,15 +1029,14 @@ def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[s
         raise HTTPException(status_code=500, detail=f"Error exporting purchase orders Excel: {str(e)}")
 
 @app.get("/api/exports/projects/{project_id}/excel")
-def export_project_detail_excel(project_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def export_project_detail_excel(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     try:
         project = crud.get_project(db, project_id=project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+        project = populate_project_relations(db, project)
             
         excel_file = excel_export.export_project_detail_to_excel(project)
-        
-        from fastapi.responses import StreamingResponse
         headers = {
             'Content-Disposition': f'attachment; filename="project_detail_{project_id}.xlsx"'
         }
@@ -1010,15 +1047,14 @@ def export_project_detail_excel(project_id: int, username: str = Depends(get_cur
         raise HTTPException(status_code=500, detail=f"Error exporting project detail Excel: {str(e)}")
 
 @app.get("/api/exports/purchase-orders/{po_id}/excel")
-def export_po_detail_excel(po_id: int, username: str = Depends(get_current_user_username), db: Session = Depends(get_db)):
+def export_po_detail_excel(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
     try:
         po = crud.get_purchase_order(db, po_id=po_id)
         if not po:
             raise HTTPException(status_code=404, detail="Purchase Order not found")
+        po = populate_po_project(db, po)
             
         excel_file = excel_export.export_po_detail_to_excel(po)
-        
-        from fastapi.responses import StreamingResponse
         headers = {
             'Content-Disposition': f'attachment; filename="purchase_order_detail_{po_id}.xlsx"'
         }
@@ -1027,7 +1063,6 @@ def export_po_detail_excel(po_id: int, username: str = Depends(get_current_user_
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error exporting PO detail Excel: {str(e)}")
-
 
 
 # Mount Static and Uploads directories
