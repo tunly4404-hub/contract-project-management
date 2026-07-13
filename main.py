@@ -13,7 +13,7 @@ import requests
 import schemas
 import crud
 import excel_export
-from firebase_config import db as firestore_db
+from firebase_config import db as firestore_db, bucket as firebase_bucket
 
 app = FastAPI(title="Smart Contract & Purchase Order Management System")
 
@@ -66,55 +66,56 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(UPLOAD_PO_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DELIVERY_DIR, exist_ok=True)
 
-# Supabase Storage configuration
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "project-attachments")
-
-def upload_to_supabase_if_configured(file_content: bytes, filename: str, subfolder: str, content_type: str) -> Optional[str]:
+# Firebase Cloud Storage upload/delete helper functions
+def upload_to_firebase_storage(file_content: bytes, filename: str, subfolder: str, content_type: str) -> Optional[str]:
     """
-    Uploads file content to Supabase Storage if configured.
-    Returns the public URL if successful, or None if Supabase is not configured.
+    Uploads file content to Firebase Cloud Storage if configured.
+    Returns the public URL if successful, or None if Firebase Storage is not initialized.
     """
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    if firebase_bucket is None:
+        print("Firebase Storage is not initialized. Falling back to local storage.")
         return None
         
-    encoded_path = urllib.parse.quote(f"{subfolder}/{filename}")
-    url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{encoded_path}"
-    
-    headers = {
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": content_type
-    }
-    
     try:
-        response = requests.post(url, headers=headers, data=file_content, timeout=30)
-        if response.status_code == 200:
-            public_url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public/{SUPABASE_BUCKET}/{encoded_path}"
-            return public_url
-        else:
-            print(f"Supabase upload error ({response.status_code}): {response.text}")
-            raise HTTPException(status_code=500, detail=f"Failed to upload file to Supabase Storage: {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"Supabase upload connection error: {e}")
-        raise HTTPException(status_code=500, detail=f"Connection error to Supabase Storage: {str(e)}")
+        # Determine unique file path in bucket
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        blob_path = f"{subfolder}/{timestamp}_{filename}"
+        blob = firebase_bucket.blob(blob_path)
+        
+        # Upload content
+        blob.upload_from_string(file_content, content_type=content_type)
+        
+        # Make the file public so others can download/view it
+        blob.make_public()
+        
+        # Return the public URL
+        return blob.public_url
+    except Exception as e:
+        print(f"Firebase Storage upload error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload file to Firebase Storage: {str(e)}")
 
-def delete_from_supabase_if_configured(public_url: str):
-    if not SUPABASE_URL or not SUPABASE_KEY or not public_url:
+def delete_from_firebase_storage(public_url: str):
+    """
+    Deletes the file from Firebase Storage.
+    """
+    if firebase_bucket is None or not public_url:
         return
-    if "supabase.co/storage/v1/object/public" not in public_url:
+        
+    if "storage.googleapis.com" not in public_url:
         return
         
     try:
-        part = f"/storage/v1/object/public/{SUPABASE_BUCKET}/"
-        path = public_url.split(part)[1]
-        url = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/{SUPABASE_BUCKET}/{path}"
-        headers = {
-            "Authorization": f"Bearer {SUPABASE_KEY}"
-        }
-        requests.delete(url, headers=headers, timeout=10)
+        bucket_name = firebase_bucket.name
+        path_part = f"storage.googleapis.com/{bucket_name}/"
+        if path_part in public_url:
+            # Extract and unquote the path
+            blob_path = urllib.parse.unquote(public_url.split(path_part)[1])
+            blob = firebase_bucket.blob(blob_path)
+            if blob.exists():
+                blob.delete()
+                print(f"Deleted file {blob_path} from Firebase Storage.")
     except Exception as e:
-        print(f"Failed to delete from Supabase storage: {e}")
+        print(f"Failed to delete file from Firebase Storage: {e}")
 
 def get_db():
     return firestore_db
@@ -421,6 +422,28 @@ def delete_project(project_id: str, current_admin = Depends(check_admin_role), d
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+        
+    # Delete uploaded documents in Firebase Storage before deleting project record
+    docs = db.collection("documents").where("project_id", "==", project_id).stream()
+    for doc in docs:
+        d = doc.to_dict()
+        if d.get("url_path"):
+            delete_from_firebase_storage(d.get("url_path"))
+            
+    # Delete guarantee receipt and guarantee document from Firebase Storage
+    if db_project.get("guarantee_receipt_path"):
+        delete_from_firebase_storage(db_project.get("guarantee_receipt_path"))
+    if db_project.get("guarantee_document_path"):
+        delete_from_firebase_storage(db_project.get("guarantee_document_path"))
+
+    # Also delete PO files from Firebase Storage associated with this project
+    pos = db.collection("purchase_orders").where("project_id", "==", project_id).stream()
+    for po_doc in pos:
+        po = po_doc.to_dict()
+        for path_key in ["po_file_path", "quotation_file_path", "delivery_file_path"]:
+            if po.get(path_key):
+                delete_from_firebase_storage(po.get(path_key))
+
     crud.log_user_action(db, current_admin.username, "ลบ", "โครงการ", db_project.get("name"), f"ลบโครงการ ID: {project_id}")
     success = crud.delete_project(db=db, project_id=project_id)
     if not success:
@@ -503,8 +526,11 @@ def delete_purchase_order(po_id: str, current_admin = Depends(check_admin_role),
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
     
+    # Delete PO files from Firebase Cloud Storage
     for path in [db_po.get("po_file_path"), db_po.get("quotation_file_path"), db_po.get("delivery_file_path")]:
         if path:
+            delete_from_firebase_storage(path)
+            # Try fallback local files delete
             filename = os.path.basename(path)
             for folder in [UPLOAD_PO_DIR, UPLOAD_DELIVERY_DIR, UPLOAD_DIR]:
                 file_path = os.path.join(folder, filename)
@@ -536,10 +562,12 @@ def upload_po_file(po_id: str, file: UploadFile = File(...), username: str = Dep
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "pos", file.content_type)
-    if supabase_url:
-        po_file_path = supabase_url
+    # Upload to Firebase Storage
+    cloud_url = upload_to_firebase_storage(file_content, file.filename, "pos", file.content_type)
+    if cloud_url:
+        po_file_path = cloud_url
     else:
+        # Fallback local upload
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"po_{timestamp}_{file.filename}"
         file_path = os.path.join(UPLOAD_PO_DIR, safe_filename)
@@ -570,8 +598,10 @@ def delete_po_file(po_id: str, username: str = Depends(get_current_user_username
         
     po_file_path = db_po.get("po_file_path")
     if po_file_path:
-        delete_from_supabase_if_configured(po_file_path)
+        # Delete from Firebase Storage
+        delete_from_firebase_storage(po_file_path)
         
+        # Local fallback delete
         filename = os.path.basename(po_file_path)
         file_path = os.path.join(UPLOAD_PO_DIR, filename)
         if os.path.exists(file_path):
@@ -605,9 +635,9 @@ def upload_quotation_file(po_id: str, file: UploadFile = File(...), username: st
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "pos", file.content_type)
-    if supabase_url:
-        quotation_file_path = supabase_url
+    cloud_url = upload_to_firebase_storage(file_content, file.filename, "pos", file.content_type)
+    if cloud_url:
+        quotation_file_path = cloud_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"quot_{timestamp}_{file.filename}"
@@ -639,7 +669,7 @@ def delete_quotation_file(po_id: str, username: str = Depends(get_current_user_u
         
     quot_path = db_po.get("quotation_file_path")
     if quot_path:
-        delete_from_supabase_if_configured(quot_path)
+        delete_from_firebase_storage(quot_path)
         
         filename = os.path.basename(quot_path)
         file_path = os.path.join(UPLOAD_PO_DIR, filename)
@@ -674,9 +704,9 @@ def upload_delivery_file(po_id: str, file: UploadFile = File(...), username: str
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "deliveries", file.content_type)
-    if supabase_url:
-        delivery_file_path = supabase_url
+    cloud_url = upload_to_firebase_storage(file_content, file.filename, "deliveries", file.content_type)
+    if cloud_url:
+        delivery_file_path = cloud_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"delivery_{timestamp}_{file.filename}"
@@ -708,7 +738,7 @@ def delete_delivery_file(po_id: str, username: str = Depends(get_current_user_us
         
     deliv_path = db_po.get("delivery_file_path")
     if deliv_path:
-        delete_from_supabase_if_configured(deliv_path)
+        delete_from_firebase_storage(deliv_path)
         
         filename = os.path.basename(deliv_path)
         file_path = os.path.join(UPLOAD_DELIVERY_DIR, filename)
@@ -749,9 +779,9 @@ def upload_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "documents", file.content_type)
-    if supabase_url:
-        url_path = supabase_url
+    cloud_url = upload_to_firebase_storage(file_content, file.filename, "documents", file.content_type)
+    if cloud_url:
+        url_path = cloud_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"{timestamp}_{file.filename}"
@@ -789,7 +819,7 @@ def delete_document(document_id: str, username: str = Depends(get_current_user_u
         
     url_path = db_doc.get("url_path")
     if url_path:
-        delete_from_supabase_if_configured(url_path)
+        delete_from_firebase_storage(url_path)
         filename = os.path.basename(url_path)
         file_path = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(file_path):
@@ -832,9 +862,9 @@ def upload_guarantee_receipt(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "guarantees", file.content_type)
-    if supabase_url:
-        guarantee_receipt_path = supabase_url
+    cloud_url = upload_to_firebase_storage(file_content, file.filename, "guarantees", file.content_type)
+    if cloud_url:
+        guarantee_receipt_path = cloud_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"guar_rec_{timestamp}_{file.filename}"
@@ -866,7 +896,7 @@ def delete_guarantee_receipt(project_id: str, username: str = Depends(get_curren
         
     receipt_path = db_project.get("guarantee_receipt_path")
     if receipt_path:
-        delete_from_supabase_if_configured(receipt_path)
+        delete_from_firebase_storage(receipt_path)
         filename = os.path.basename(receipt_path)
         file_path = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(file_path):
@@ -905,9 +935,9 @@ def upload_guarantee_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
         
-    supabase_url = upload_to_supabase_if_configured(file_content, file.filename, "guarantees", file.content_type)
-    if supabase_url:
-        guarantee_document_path = supabase_url
+    cloud_url = upload_to_firebase_storage(file_content, file.filename, "guarantees", file.content_type)
+    if cloud_url:
+        guarantee_document_path = cloud_url
     else:
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         safe_filename = f"guar_doc_{timestamp}_{file.filename}"
@@ -939,7 +969,7 @@ def delete_guarantee_document(project_id: str, username: str = Depends(get_curre
         
     doc_path = db_project.get("guarantee_document_path")
     if doc_path:
-        delete_from_supabase_if_configured(doc_path)
+        delete_from_firebase_storage(doc_path)
         filename = os.path.basename(doc_path)
         file_path = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(file_path):
