@@ -857,7 +857,7 @@ function renderProjectsTable(projects) {
     
     const isAdmin = isCurrentUserAdmin();
     
-    projects.forEach(project => {
+    projects.forEach((project, index) => {
         let badgeColor = "bg-blue-100 text-blue-800";
         if (project.status === "ล่าช้า") {
             badgeColor = "bg-rose-100 text-rose-800";
@@ -867,14 +867,14 @@ function renderProjectsTable(projects) {
         
         // V5 RBAC: Show delete button for admins only
         const deleteButton = isAdmin 
-            ? `<button onclick="deleteProject(${project.id})" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
+            ? `<button onclick="deleteProject('${project.id}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
             : "";
         
         const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/50 transition duration-150";
         row.innerHTML = `
-            <td class="px-6 py-4 font-semibold text-slate-500 text-xs">${project.id}</td>
-            <td class="px-6 py-4 font-semibold text-slate-900 text-sm hover:text-indigo-600 cursor-pointer" onclick="openDetailModal(${project.id})">${project.name}</td>
+            <td class="px-6 py-4 font-semibold text-slate-500 text-xs">${index + 1}</td>
+            <td class="px-6 py-4 font-semibold text-slate-900 text-sm hover:text-indigo-600 cursor-pointer" onclick="openDetailModal('${project.id}')">${project.contract_number ? `[${project.contract_number}] ` : ""}${project.name}</td>
             <td class="px-6 py-4 text-slate-500 text-sm">${project.owner}</td>
             <td class="px-6 py-4 text-slate-700 text-sm font-medium">${project.contractor || "-"}</td>
             <td class="px-6 py-4 text-slate-600 text-sm">${project.job_type || "-"}</td>
@@ -885,8 +885,8 @@ function renderProjectsTable(projects) {
                 <span class="${badgeColor} text-xs px-2.5 py-0.5 rounded-full font-bold">${project.status}</span>
             </td>
             <td class="px-6 py-4 text-center whitespace-nowrap text-xs font-medium space-x-2">
-                <button onclick="openDetailModal(${project.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition duration-150">ดูรายละเอียด</button>
-                <button onclick="editProject(${project.id})" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>
+                <button onclick="openDetailModal('${project.id}')" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition duration-150">ดูรายละเอียด</button>
+                <button onclick="editProject('${project.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>
                 ${deleteButton}
             </td>
         `;
@@ -1323,7 +1323,7 @@ function renderGuaranteeReceiptFile(project) {
         // V5 RBAC: Show file delete only for Admin
         const deleteButton = isAdmin 
             ? `
-            <button onclick="deleteGuaranteeReceipt(${project.id})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบใบเสร็จ">
+            <button onclick="deleteGuaranteeReceipt('${project.id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบใบเสร็จ">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -1417,7 +1417,7 @@ function renderGuaranteeDocumentFile(project) {
         
         const deleteButton = isAdmin 
             ? `
-            <button onclick="deleteGuaranteeDocument(${project.id})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบหลักฐานค้ำประกัน">
+            <button onclick="deleteGuaranteeDocument('${project.id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบหลักฐานค้ำประกัน">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -1474,84 +1474,63 @@ async function uploadGuaranteeDocument() {
         openDetailModal(currentProjectId);
     } catch (error) {
         console.error("Error uploading document:", error);
-        alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์: " + error.message);
-    } finally {
-        hideLoading();
-    }
-}
-
-async function deleteGuaranteeDocument(id) {
-    if (!confirm("คุณแน่ใจว่าต้องการลบไฟล์หลักฐานการค้ำประกันนี้?")) return;
-    
-    try {
-        showLoading("กำลังลบไฟล์หลักฐานการค้ำประกัน...");
-        const response = await secureFetch(`/api/projects/${id}/guarantee-document`, {
-            method: "DELETE"
-        });
-        if (response.status === 403) {
-            const err = await response.json();
-            alert(err.detail || "สิทธิ์ไม่เพียงพอสำหรับการลบหลักฐานการค้ำประกัน");
-            return;
-        }
-        if (!response.ok) throw new Error("Failed to delete document");
-        openDetailModal(currentProjectId);
-    } catch (error) {
-        console.error("Error deleting document:", error);
-        alert("เกิดข้อผิดพลาดในการลบไฟล์: " + error.message);
-    } finally {
-        hideLoading();
-    }
-}
-
-// ----------------------------------------------------
-// DELIVERABLES SUB-LOGIC
-// ----------------------------------------------------
-function setupDeliverablesDynamicFormAndHeader(project) {
-    const headerRow = document.getElementById("detail-deliverables-header-row");
-    const invoiceContainer = document.getElementById("add-deliv-invoice-container");
-    
-    if (project.right_assignment === "โอนสิทธิ์") {
-        headerRow.innerHTML = `
-            <th scope="col" class="px-4 py-3">รายการส่งมอบ / วัสดุ</th>
-            <th scope="col" class="px-4 py-3">งวดงาน</th>
-            <th scope="col" class="px-4 py-3">งบประมาณ</th>
-            <th scope="col" class="px-4 py-3">เลขที่การส่งภายใน (Internal)</th>
-            <th scope="col" class="px-4 py-3">เลขที่การส่งภายนอก (External)</th>
-            <th scope="col" class="px-4 py-3">วันที่ต้องส่งมอบ</th>
-            <th scope="col" class="px-4 py-3">สถานะ</th>
-            <th scope="col" class="px-4 py-3 text-center">จัดการ</th>
-        `;
+          // V5 RBAC: Show deliverable delete button only for admins
+        const deleteButton = isAdmin 
+            ? `
+            <button onclick="deleteDeliverable('${del.id}')" class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded transition duration-150" title="ลบงวดงาน">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
+            ` 
+            : "";
         
-        invoiceContainer.innerHTML = `
-            <div>
-                <input type="text" id="add-deliv-internal-no" placeholder="เลขที่การส่งภายใน (Internal No.)..." class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
-            </div>
-            <div>
-                <input type="text" id="add-deliv-external-no" placeholder="เลขที่การส่งภายนอก (External No.)..." class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
-            </div>
-        `;
-    } else {
-        headerRow.innerHTML = `
-            <th scope="col" class="px-4 py-3">รายการส่งมอบ / วัสดุ</th>
-            <th scope="col" class="px-4 py-3">งวดงาน</th>
-            <th scope="col" class="px-4 py-3">งบประมาณ</th>
-            <th scope="col" class="px-4 py-3">เลขที่ใบส่งของ</th>
-            <th scope="col" class="px-4 py-3">วันที่ต้องส่งมอบ</th>
-            <th scope="col" class="px-4 py-3">สถานะ</th>
-            <th scope="col" class="px-4 py-3 text-center">จัดการ</th>
-        `;
+        const row = document.createElement("tr");
+        row.className = "hover:bg-slate-50 transition duration-150";
         
-        invoiceContainer.innerHTML = `
-            <div class="md:col-span-2">
-                <input type="text" id="add-deliv-delivery-no" placeholder="เลขที่ใบส่งของ (Delivery Invoice No.)..." class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
-            </div>
-        `;
-    }
-}
-
-function renderDeliverablesTable(deliverables) {
-    const body = document.getElementById("detail-deliverables-body");
-    const countBadge = document.getElementById("detail-deliv-count");
+        if (currentProjectRightAssignment === "โอนสิทธิ์") {
+            row.innerHTML = `
+                <td class="px-4 py-3 font-semibold text-slate-800">${del.name}</td>
+                <td class="px-4 py-3 text-slate-600 font-medium">${del.milestone || "-"}</td>
+                <td class="px-4 py-3 text-slate-700 font-semibold">${del.budget ? formatCurrency(del.budget) : "-"}</td>
+                <td class="px-4 py-3 text-slate-600 font-mono">${del.internal_delivery_no || "-"}</td>
+                <td class="px-4 py-3 text-slate-650 font-mono">${del.external_delivery_no || "-"}</td>
+                <td class="px-4 py-3 text-slate-500">${formatThaiDate(del.due_date)}</td>
+                <td class="px-4 py-3">
+                    <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
+                </td>
+                <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
+                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
+                        ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
+                    </button>
+                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
+                    ${deleteButton}
+                </td>
+            `;
+        } else {
+            row.innerHTML = `
+                <td class="px-4 py-3 font-semibold text-slate-800">${del.name}</td>
+                <td class="px-4 py-3 text-slate-600 font-medium">${del.milestone || "-"}</td>
+                <td class="px-4 py-3 text-slate-700 font-semibold">${del.budget ? formatCurrency(del.budget) : "-"}</td>
+                <td class="px-4 py-3 text-slate-600 font-mono">${del.delivery_no || "-"}</td>
+                <td class="px-4 py-3 text-slate-500">${formatThaiDate(del.due_date)}</td>
+                <td class="px-4 py-3">
+                    <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
+                </td>
+                <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
+                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
+                        ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
+                    </button>
+                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
+                    ${deleteButton}mentById("detail-deliv-count");
     const noDelivMsg = document.getElementById("no-deliverables-message");
     
     body.innerHTML = "";
@@ -1751,7 +1730,7 @@ function renderDocumentsList(documents) {
         // V5 RBAC: Show file delete only for Admin
         const deleteButton = isAdmin 
             ? `
-            <button onclick="deleteDocument(${doc.id})" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบไฟล์แนบ">
+            <button onclick="deleteDocument('${doc.id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบไฟล์แนบ">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -1868,28 +1847,30 @@ function renderPOsTable(pos) {
         
         let projName = "ไม่พบข้อมูลโครงการ";
         const linkedProj = projectsCache.find(p => p.id === po.project_id);
-        if (linkedProj) projName = linkedProj.name;
+        if (linkedProj) {
+            projName = (linkedProj.contract_number ? `[${linkedProj.contract_number}] ` : "") + linkedProj.name;
+        }
         
         // V5 RBAC: Show PO delete button only for Admin
         const deleteButton = isAdmin 
-            ? `<button onclick="deletePO(${po.id})" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
+            ? `<button onclick="deletePO('${po.id}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
             : "";
         
         const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/50 transition duration-150";
         row.innerHTML = `
-            <td class="px-6 py-4 font-mono font-bold text-indigo-600 text-sm cursor-pointer" onclick="openPODetailModal(${po.id})">${po.po_number}</td>
+            <td class="px-6 py-4 font-mono font-bold text-indigo-600 text-sm cursor-pointer" onclick="openPODetailModal('${po.id}')">${po.po_number}</td>
             <td class="px-6 py-4 font-semibold text-slate-800 text-sm truncate max-w-[280px]" title="${projName}">${projName}</td>
             <td class="px-6 py-4 text-slate-500 text-sm">${po.owner || "-"}</td>
             <td class="px-6 py-4 font-bold text-slate-900 text-sm">${formatCurrency(po.budget)}</td>
             <td class="px-6 py-4 text-slate-500 text-xs">${formatThaiDate(po.due_date)}</td>
-            <td class="px-6 py-4 text-slate-600 text-sm">${po.contractor}</td>
+            <td class="px-6 py-4 text-slate-650 text-sm">${po.contractor}</td>
             <td class="px-6 py-4">
                 <span class="${badgeColor} text-xs px-2.5 py-0.5 rounded-full font-bold">${po.delivery_status}</span>
             </td>
             <td class="px-6 py-4 text-center whitespace-nowrap text-xs font-medium space-x-2">
-                <button onclick="openPODetailModal(${po.id})" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition duration-150">ดูรายละเอียด</button>
-                <button onclick="editPO(${po.id})" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>
+                <button onclick="openPODetailModal('${po.id}')" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition duration-150">ดูรายละเอียด</button>
+                <button onclick="editPO('${po.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>
                 ${deleteButton}
             </td>
         `;
@@ -1934,7 +1915,7 @@ function populatePOProjectsDropdown(selectedId = "") {
     projectsCache.forEach(p => {
         const opt = document.createElement("option");
         opt.value = p.id;
-        opt.innerText = p.name;
+        opt.innerText = (p.contract_number ? `[${p.contract_number}] ` : "") + p.name;
         if (p.id == selectedId) opt.selected = true;
         select.appendChild(opt);
     });
