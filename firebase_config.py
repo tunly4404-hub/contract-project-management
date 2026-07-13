@@ -62,8 +62,8 @@ def initialize_firebase():
                         print(f"Warning: Application Default Credentials not available: {e}")
 
             # Setup default storage bucket
-            # In Firebase, the default bucket name is typically '<PROJECT_ID>.appspot.com'
-            storage_bucket_name = f"{project_id}.appspot.com" if project_id else None
+            # In Firebase, the default bucket name is typically '<PROJECT_ID>.firebasestorage.app' for newer projects
+            storage_bucket_name = f"{project_id}.firebasestorage.app" if project_id else None
             
             # Initialize the app
             if cred:
