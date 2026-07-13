@@ -1474,63 +1474,84 @@ async function uploadGuaranteeDocument() {
         openDetailModal(currentProjectId);
     } catch (error) {
         console.error("Error uploading document:", error);
-          // V5 RBAC: Show deliverable delete button only for admins
-        const deleteButton = isAdmin 
-            ? `
-            <button onclick="deleteDeliverable('${del.id}')" class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded transition duration-150" title="ลบงวดงาน">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-            </button>
-            ` 
-            : "";
+        alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์: " + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deleteGuaranteeDocument(id) {
+    if (!confirm("คุณแน่ใจว่าต้องการลบไฟล์หลักฐานการค้ำประกันนี้?")) return;
+    
+    try {
+        showLoading("กำลังลบไฟล์หลักฐานการค้ำประกัน...");
+        const response = await secureFetch(`/api/projects/${id}/guarantee-document`, {
+            method: "DELETE"
+        });
+        if (response.status === 403) {
+            const err = await response.json();
+            alert(err.detail || "สิทธิ์ไม่เพียงพอสำหรับการลบหลักฐานการค้ำประกัน");
+            return;
+        }
+        if (!response.ok) throw new Error("Failed to delete document");
+        openDetailModal(currentProjectId);
+    } catch (error) {
+        console.error("Error deleting document:", error);
+        alert("เกิดข้อผิดพลาดในการลบไฟล์: " + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// ----------------------------------------------------
+// DELIVERABLES SUB-LOGIC
+// ----------------------------------------------------
+function setupDeliverablesDynamicFormAndHeader(project) {
+    const headerRow = document.getElementById("detail-deliverables-header-row");
+    const invoiceContainer = document.getElementById("add-deliv-invoice-container");
+    
+    if (project.right_assignment === "โอนสิทธิ์") {
+        headerRow.innerHTML = `
+            <th scope="col" class="px-4 py-3">รายการส่งมอบ / วัสดุ</th>
+            <th scope="col" class="px-4 py-3">งวดงาน</th>
+            <th scope="col" class="px-4 py-3">งบประมาณ</th>
+            <th scope="col" class="px-4 py-3">เลขที่การส่งภายใน (Internal)</th>
+            <th scope="col" class="px-4 py-3">เลขที่การส่งภายนอก (External)</th>
+            <th scope="col" class="px-4 py-3">วันที่ต้องส่งมอบ</th>
+            <th scope="col" class="px-4 py-3">สถานะ</th>
+            <th scope="col" class="px-4 py-3 text-center">จัดการ</th>
+        `;
         
-        const row = document.createElement("tr");
-        row.className = "hover:bg-slate-50 transition duration-150";
+        invoiceContainer.innerHTML = `
+            <div>
+                <input type="text" id="add-deliv-internal-no" placeholder="เลขที่การส่งภายใน (Internal No.)..." class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            </div>
+            <div>
+                <input type="text" id="add-deliv-external-no" placeholder="เลขที่การส่งภายนอก (External No.)..." class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            </div>
+        `;
+    } else {
+        headerRow.innerHTML = `
+            <th scope="col" class="px-4 py-3">รายการส่งมอบ / วัสดุ</th>
+            <th scope="col" class="px-4 py-3">งวดงาน</th>
+            <th scope="col" class="px-4 py-3">งบประมาณ</th>
+            <th scope="col" class="px-4 py-3">เลขที่ใบส่งของ</th>
+            <th scope="col" class="px-4 py-3">วันที่ต้องส่งมอบ</th>
+            <th scope="col" class="px-4 py-3">สถานะ</th>
+            <th scope="col" class="px-4 py-3 text-center">จัดการ</th>
+        `;
         
-        if (currentProjectRightAssignment === "โอนสิทธิ์") {
-            row.innerHTML = `
-                <td class="px-4 py-3 font-semibold text-slate-800">${del.name}</td>
-                <td class="px-4 py-3 text-slate-600 font-medium">${del.milestone || "-"}</td>
-                <td class="px-4 py-3 text-slate-700 font-semibold">${del.budget ? formatCurrency(del.budget) : "-"}</td>
-                <td class="px-4 py-3 text-slate-600 font-mono">${del.internal_delivery_no || "-"}</td>
-                <td class="px-4 py-3 text-slate-650 font-mono">${del.external_delivery_no || "-"}</td>
-                <td class="px-4 py-3 text-slate-500">${formatThaiDate(del.due_date)}</td>
-                <td class="px-4 py-3">
-                    <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
-                </td>
-                <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
-                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
-                        ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
-                    </button>
-                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                    </button>
-                    ${deleteButton}
-                </td>
-            `;
-        } else {
-            row.innerHTML = `
-                <td class="px-4 py-3 font-semibold text-slate-800">${del.name}</td>
-                <td class="px-4 py-3 text-slate-600 font-medium">${del.milestone || "-"}</td>
-                <td class="px-4 py-3 text-slate-700 font-semibold">${del.budget ? formatCurrency(del.budget) : "-"}</td>
-                <td class="px-4 py-3 text-slate-600 font-mono">${del.delivery_no || "-"}</td>
-                <td class="px-4 py-3 text-slate-500">${formatThaiDate(del.due_date)}</td>
-                <td class="px-4 py-3">
-                    <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
-                </td>
-                <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
-                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
-                        ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
-                    </button>
-                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                    </button>
-                    ${deleteButton}mentById("detail-deliv-count");
+        invoiceContainer.innerHTML = `
+            <div class="md:col-span-2">
+                <input type="text" id="add-deliv-delivery-no" placeholder="เลขที่ใบส่งของ (Delivery Invoice No.)..." class="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            </div>
+        `;
+    }
+}
+
+function renderDeliverablesTable(deliverables) {
+    const body = document.getElementById("detail-deliverables-body");
+    const countBadge = document.getElementById("detail-deliv-count");
     const noDelivMsg = document.getElementById("no-deliverables-message");
     
     body.innerHTML = "";
@@ -1553,7 +1574,7 @@ async function uploadGuaranteeDocument() {
         // V5 RBAC: Show deliverable delete button only for admins
         const deleteButton = isAdmin 
             ? `
-            <button onclick="deleteDeliverable(${del.id})" class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded transition duration-150" title="ลบงวดงาน">
+            <button onclick="deleteDeliverable('${del.id}')" class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded transition duration-150" title="ลบงวดงาน">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
@@ -1576,10 +1597,10 @@ async function uploadGuaranteeDocument() {
                     <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
                 </td>
                 <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
-                    <button onclick="toggleDeliverableStatus(${del.id}, '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
+                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
                         ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
                     </button>
-                    <button onclick="editDeliverable(${del.id})" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
+                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
@@ -1598,10 +1619,10 @@ async function uploadGuaranteeDocument() {
                     <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
                 </td>
                 <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
-                    <button onclick="toggleDeliverableStatus(${del.id}, '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
+                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
                         ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
                     </button>
-                    <button onclick="editDeliverable(${del.id})" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
+                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
@@ -1864,7 +1885,7 @@ function renderPOsTable(pos) {
             <td class="px-6 py-4 text-slate-500 text-sm">${po.owner || "-"}</td>
             <td class="px-6 py-4 font-bold text-slate-900 text-sm">${formatCurrency(po.budget)}</td>
             <td class="px-6 py-4 text-slate-500 text-xs">${formatThaiDate(po.due_date)}</td>
-            <td class="px-6 py-4 text-slate-650 text-sm">${po.contractor}</td>
+            <td class="px-6 py-4 text-slate-600 text-sm">${po.contractor}</td>
             <td class="px-6 py-4">
                 <span class="${badgeColor} text-xs px-2.5 py-0.5 rounded-full font-bold">${po.delivery_status}</span>
             </td>
