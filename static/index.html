@@ -1430,18 +1430,18 @@
 
     <!-- MODAL 5: ADMIN RESET PASSWORD (V5 RBAC) -->
     <div id="reset-password-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
             <!-- Modal Header -->
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
                 <h3 class="font-bold text-base text-slate-900">เปลี่ยนรหัสผ่านผู้ใช้งาน</h3>
-                <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-slate-600">
+                <button onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-slate-600 transition duration-150">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
             <!-- Modal Body -->
-            <form onsubmit="submitResetPassword(event)" class="p-6 space-y-4">
+            <form onsubmit="submitResetPassword(event)" class="flex-1 overflow-y-auto p-6 space-y-4">
                 <input type="hidden" id="reset-pwd-user-id">
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase">ผู้ใช้งาน</label>
@@ -1457,20 +1457,23 @@
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition duration-150 shadow-sm">บันทึกรหัสผ่านใหม่</button>
                 </div>
             </form>
+        </div>
+    </div>
+
     <!-- MODAL 6: ADMIN EDIT USER ROLE & COMPANY (RBAC / Multi-Tenancy) -->
     <div id="edit-user-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
             <!-- Modal Header -->
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
                 <h3 class="font-bold text-base text-slate-900">แก้ไขข้อมูลสิทธิ์และบริษัทผู้ใช้งาน</h3>
-                <button onclick="closeEditUserModal()" class="text-slate-400 hover:text-slate-600">
+                <button onclick="closeEditUserModal()" class="text-slate-400 hover:text-slate-600 transition duration-150">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
             <!-- Modal Body -->
-            <form onsubmit="submitEditUser(event)" class="p-6 space-y-4">
+            <form onsubmit="submitEditUser(event)" class="flex-1 overflow-y-auto p-6 space-y-4">
                 <input type="hidden" id="edit-user-id">
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase">ชื่อผู้ใช้ (Username)</label>
