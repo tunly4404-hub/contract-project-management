@@ -510,9 +510,7 @@ def read_project(project_id: str, current_user = Depends(get_current_active_user
 def create_project(project: schemas.ProjectCreate, current_user = Depends(get_current_active_user), db = Depends(get_db)):
     user = excel_export.DictObject(current_user)
     username = user.username
-    if user.role != "admin":
-        if not user.company:
-            raise HTTPException(status_code=403, detail="สิทธิ์ผู้ใช้งานของท่านไม่ได้ระบุชื่อบริษัท/ห้างหุ้นส่วนคู่สัญญา")
+    if user.role != "admin" and user.company:
         # Force the project contractor to be their assigned company
         project.contractor = user.company
         
@@ -528,7 +526,7 @@ def update_project(project_id: str, project: schemas.ProjectUpdate, current_user
     if not db_project_old:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    if user.role != "admin":
+    if user.role != "admin" and user.company:
         if db_project_old.get("contractor") != user.company:
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์แก้ไขโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         # Ensure contractor cannot be modified to a different company
@@ -582,7 +580,7 @@ def create_project_deliverable(project_id: str, deliverable: schemas.Deliverable
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role != "admin":
+    if user.role != "admin" and user.company:
         if db_project.get("contractor") != user.company:
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เพิ่มงวดงานในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
             
@@ -597,7 +595,7 @@ def update_deliverable(deliverable_id: str, deliverable: schemas.DeliverableUpda
     db_del = crud.get_deliverable(db, deliverable_id)
     if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
-    if user.role != "admin":
+    if user.role != "admin" and user.company:
         project = crud.get_project(db, db_del.get("project_id"))
         if not project or project.get("contractor") != user.company:
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์แก้ไขงวดงานในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
@@ -613,7 +611,7 @@ def delete_deliverable(deliverable_id: str, current_user = Depends(get_current_a
     db_del = crud.get_deliverable(db, deliverable_id)
     if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
-    if user.role != "admin":
+    if user.role != "admin" and user.company:
         project = crud.get_project(db, db_del.get("project_id"))
         if not project or project.get("contractor") != user.company:
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบงวดงานในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
@@ -649,7 +647,7 @@ def create_purchase_order(project_id: str, po: schemas.PurchaseOrderCreate, curr
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
         
-    if user.role != "admin":
+    if user.role != "admin" and user.company:
         if db_project.get("contractor") != user.company:
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เพิ่มใบสั่งซื้อในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         # Force contractor to be user's company
@@ -667,7 +665,7 @@ def update_purchase_order(po_id: str, po: schemas.PurchaseOrderUpdate, current_u
     if not db_po_old:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
-    if user.role != "admin":
+    if user.role != "admin" and user.company:
         if db_po_old.get("contractor") != user.company:
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์แก้ไขใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         # Ensure contractor cannot be modified
@@ -720,7 +718,7 @@ def upload_po_file(po_id: str, file: UploadFile = File(...), current_user = Depe
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    if user.role != "admin" and db_po.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_po.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
@@ -765,7 +763,7 @@ def delete_po_file(po_id: str, current_user = Depends(get_current_active_user), 
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    if user.role != "admin" and db_po.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_po.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     po_file_path = db_po.get("po_file_path")
@@ -801,7 +799,7 @@ def upload_quotation_file(po_id: str, file: UploadFile = File(...), current_user
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    if user.role != "admin" and db_po.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_po.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
@@ -844,7 +842,7 @@ def delete_quotation_file(po_id: str, current_user = Depends(get_current_active_
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    if user.role != "admin" and db_po.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_po.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     quot_path = db_po.get("quotation_file_path")
@@ -878,7 +876,7 @@ def upload_delivery_file(po_id: str, file: UploadFile = File(...), current_user 
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    if user.role != "admin" and db_po.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_po.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
@@ -921,7 +919,7 @@ def delete_delivery_file(po_id: str, current_user = Depends(get_current_active_u
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    if user.role != "admin" and db_po.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_po.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     deliv_path = db_po.get("delivery_file_path")
@@ -962,7 +960,7 @@ def upload_document(
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role != "admin" and db_project.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_project.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดเอกสารสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     try:
@@ -1012,7 +1010,7 @@ def delete_document(document_id: str, current_user = Depends(get_current_active_
         raise HTTPException(status_code=404, detail="Document not found")
     if user.role != "admin":
         project = crud.get_project(db, db_doc.get("project_id"))
-        if not project or project.get("contractor") != user.company:
+        if not project or (user.company and project.get("contractor") != user.company):
             raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบเอกสารของโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     url_path = db_doc.get("url_path")
@@ -1054,7 +1052,7 @@ def upload_guarantee_receipt(
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role != "admin" and db_project.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_project.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดใบเสร็จค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
@@ -1097,7 +1095,7 @@ def delete_guarantee_receipt(project_id: str, current_user = Depends(get_current
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role != "admin" and db_project.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_project.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบใบเสร็จค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     receipt_path = db_project.get("guarantee_receipt_path")
@@ -1135,7 +1133,7 @@ def upload_guarantee_document(
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role != "admin" and db_project.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_project.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดเอกสารค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
@@ -1178,7 +1176,7 @@ def delete_guarantee_document(project_id: str, current_user = Depends(get_curren
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role != "admin" and db_project.get("contractor") != user.company:
+    if user.role != "admin" and user.company and db_project.get("contractor") != user.company:
         raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบเอกสารค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     doc_path = db_project.get("guarantee_document_path")

@@ -905,7 +905,7 @@ function renderProjectsTable(projects) {
         
         // Show edit button for admins or the company that owns the project
         const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
-        const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
+        const isOwner = isAdmin || !currentUser.company || (project.contractor === currentUser.company);
         const editButton = isOwner 
             ? `<button onclick="editProject('${project.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>` 
             : "";
@@ -1335,7 +1335,7 @@ async function openDetailModal(id) {
         // Hide upload and add deliverable forms if not admin and not project owner
         const isAdmin = isCurrentUserAdmin();
         const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
-        const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
+        const isOwner = isAdmin || !currentUser.company || (project.contractor === currentUser.company);
         const docUploadContainer = document.getElementById("detail-doc-upload-container");
         const addDelivForm = document.getElementById("add-deliverable-form");
         if (isOwner) {
@@ -1371,7 +1371,7 @@ function renderGuaranteeReceiptFile(project) {
     
     const isAdmin = isCurrentUserAdmin();
     const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
-    const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
+    const isOwner = isAdmin || !currentUser.company || (project.contractor === currentUser.company);
     
     if (project.guarantee_receipt_path) {
         uploadContainer.classList.add("hidden");
@@ -1472,7 +1472,7 @@ function renderGuaranteeDocumentFile(project) {
     
     const isAdmin = isCurrentUserAdmin();
     const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
-    const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
+    const isOwner = isAdmin || !currentUser.company || (project.contractor === currentUser.company);
     
     if (project.guarantee_document_path) {
         uploadContainer.classList.add("hidden");
@@ -1634,7 +1634,7 @@ function renderDeliverablesTable(deliverables) {
     const isAdmin = isCurrentUserAdmin();
     const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
     const project = projectsCache.find(p => p.id === currentProjectId);
-    const isOwner = isAdmin || (project && currentUser.company && project.contractor === currentUser.company);
+    const isOwner = isAdmin || !currentUser.company || (project && project.contractor === currentUser.company);
     
     deliverables.forEach(del => {
         const isDone = del.status === "ส่งมอบแล้ว";
@@ -1815,7 +1815,7 @@ function renderDocumentsList(documents) {
     const isAdmin = isCurrentUserAdmin();
     const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
     const project = projectsCache.find(p => p.id === currentProjectId);
-    const isOwner = isAdmin || (project && currentUser.company && project.contractor === currentUser.company);
+    const isOwner = isAdmin || !currentUser.company || (project && project.contractor === currentUser.company);
     
     documents.forEach(doc => {
         // Show file delete for owners/admins
@@ -1949,7 +1949,7 @@ function renderPOsTable(pos) {
             
         // Show edit button for admins or company owner
         const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
-        const isOwner = isAdmin || (currentUser.company && po.contractor === currentUser.company);
+        const isOwner = isAdmin || !currentUser.company || (po.contractor === currentUser.company);
         const editButton = isOwner 
             ? `<button onclick="editPO('${po.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>` 
             : "";
@@ -2297,7 +2297,7 @@ function renderPOFileContainer(po, fileType) {
     
     const isAdmin = isCurrentUserAdmin();
     const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
-    const isOwner = isAdmin || (currentUser.company && po.contractor === currentUser.company);
+    const isOwner = isAdmin || !currentUser.company || (po.contractor === currentUser.company);
     
     if (filePath) {
         uploadContainer.classList.add("hidden");
@@ -2401,7 +2401,7 @@ function renderDeliveryFileContainer(po) {
     
     const isAdmin = isCurrentUserAdmin();
     const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
-    const isOwner = isAdmin || (currentUser.company && po.contractor === currentUser.company);
+    const isOwner = isAdmin || !currentUser.company || (po.contractor === currentUser.company);
     
     if (po.delivery_file_path) {
         uploadContainer.classList.add("hidden");
