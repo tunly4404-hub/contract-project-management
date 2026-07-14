@@ -68,7 +68,7 @@ def get_projects(db, skip: int = 0, limit: int = 100):
         data["id"] = doc.id
         projects.append(data)
     
-    # Sort projects: newest first
+    # Sort projects: oldest first
     def get_sort_key(item):
         created_at = item.get("created_at")
         if created_at:
@@ -78,7 +78,7 @@ def get_projects(db, skip: int = 0, limit: int = 100):
             return str(signing_date)
         return item.get("id", "")
     
-    projects.sort(key=get_sort_key, reverse=True)
+    projects.sort(key=get_sort_key)
     return projects[skip:skip+limit]
 
 def create_project(db, project: schemas.ProjectCreate, username: str):
@@ -319,7 +319,7 @@ def get_dashboard_stats(db):
         "ล่าช้า": 0,
         "ส่งมอบแล้ว": 0
     }
-    active_budget = 0.0
+    total_budget = 0.0
     
     for doc in docs:
         p = doc.to_dict()
@@ -327,16 +327,15 @@ def get_dashboard_stats(db):
         status = p.get("status", "กำลังดำเนินการ")
         status_counts[status] = status_counts.get(status, 0) + 1
         
-        if status == "กำลังดำเนินการ":
-            try:
-                active_budget += float(p.get("budget", 0.0))
-            except (ValueError, TypeError):
-                pass
+        try:
+            total_budget += float(p.get("budget", 0.0))
+        except (ValueError, TypeError):
+            pass
                 
     return {
         "total_projects": total_projects,
         "projects_by_status": status_counts,
-        "active_total_budget": active_budget
+        "active_total_budget": total_budget
     }
 
 def get_dashboard_alerts(db):

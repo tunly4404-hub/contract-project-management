@@ -2654,22 +2654,31 @@ function formatThaiDate(dateString) {
     return date.toLocaleDateString("th-TH", {
         day: "numeric",
         month: "short",
-        year: "numeric"
+        year: "numeric",
+        timeZone: "Asia/Bangkok"
     });
 }
 
 function formatTimestamp(timestampString) {
     if (!timestampString) return "-";
-    const date = new Date(timestampString);
+    
+    // If it is ISO format and doesn't contain a timezone offset or Z, append Z (since Firestore stores in UTC)
+    let cleanString = timestampString;
+    if (timestampString.includes("T") && !timestampString.endsWith("Z") && !timestampString.includes("+") && !/-\d{2}:\d{2}$/.test(timestampString)) {
+        cleanString = timestampString + "Z";
+    }
+    
+    const date = new Date(cleanString);
     if (isNaN(date)) return timestampString;
     
-    return date.toLocaleDateString("th-TH", {
+    return date.toLocaleString("th-TH", {
         day: "numeric",
         month: "short",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit"
+        second: "2-digit",
+        timeZone: "Asia/Bangkok"
     });
 }
 
