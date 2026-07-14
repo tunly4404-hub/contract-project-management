@@ -165,11 +165,31 @@ def get_current_user_username(token: str = Depends(oauth2_scheme), db = Depends(
         )
     return user.username
 
-def check_admin_role(token: str = Depends(oauth2_scheme), db = Depends(get_db)):
-    username = get_current_user_username(token, db)
+def get_current_active_user(token: str = Depends(oauth2_scheme), db = Depends(get_db)):
+    username = verify_token(token)
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     user_dict = crud.get_user_by_username(db, username=username)
+    if not user_dict:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
     user = excel_export.DictObject(user_dict)
-    if not user or user.role != "admin":
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="บัญชีผู้ใช้งานนี้ยังไม่ได้รับการอนุมัติจากผู้ดูแลระบบ (Admin) หรือถูกระงับสิทธิ์เข้าใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่ออนุมัติสิทธิ์เข้าใช้งาน",
+        )
+    return user_dict
+
+def check_admin_role(current_user = Depends(get_current_active_user)):
+    user = excel_export.DictObject(current_user)
+    if user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="สิทธิ์การใช้งานไม่เพียงพอ: จำเป็นต้องใช้สิทธิ์ผู้ดูแลระบบ (Admin) เท่านั้น"
@@ -299,6 +319,27 @@ def delete_user(user_id: str, current_admin = Depends(check_admin_role), db = De
     doc_ref.delete()
     return {"detail": "User deleted successfully"}
 
+@app.put("/api/users/{user_id}/role-company", response_model=schemas.UserResponse)
+def update_user_role_company(user_id: str, payload: schemas.UserUpdateRoleCompany, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+    
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้ในระบบ")
+        
+    update_data = {
+        "role": payload.role,
+        "company": payload.company.strip() if payload.company else None
+    }
+    doc_ref.update(update_data)
+    
+    user_data = doc.to_dict()
+    user_data.update(update_data)
+    user_data["id"] = doc.id
+    return user_data
+
 @app.put("/api/users/{user_id}/toggle-active", response_model=schemas.UserResponse)
 def toggle_user_active(user_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
     if db is None:
@@ -401,40 +442,50 @@ def get_audit_logs(
 
 
 # Dashboard Endpoints
+# Dashboard Endpoints
 @app.get("/api/dashboard/stats", response_model=schemas.DashboardStats)
-def get_dashboard_stats(username: str = Depends(get_current_user_username), db = Depends(get_db)):
-    return crud.get_dashboard_stats(db)
+def get_dashboard_stats(current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    contractor = current_user.get("company") if current_user.get("role") != "admin" else None
+    return crud.get_dashboard_stats(db, contractor=contractor)
 
 @app.get("/api/dashboard/alerts", response_model=List[schemas.DashboardAlert])
-def get_dashboard_alerts(username: str = Depends(get_current_user_username), db = Depends(get_db)):
-    return crud.get_dashboard_alerts(db)
+def get_dashboard_alerts(current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    contractor = current_user.get("company") if current_user.get("role") != "admin" else None
+    return crud.get_dashboard_alerts(db, contractor=contractor)
 
 @app.get("/api/dashboard/po-alerts", response_model=List[schemas.DashboardPOAlert])
-def get_dashboard_po_alerts(username: str = Depends(get_current_user_username), db = Depends(get_db)):
-    return crud.get_dashboard_po_alerts(db)
+def get_dashboard_po_alerts(current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    contractor = current_user.get("company") if current_user.get("role") != "admin" else None
+    return crud.get_dashboard_po_alerts(db, contractor=contractor)
 
 
 # Project Endpoints
 @app.get("/api/projects", response_model=List[schemas.Project])
-def read_projects(skip: int = 0, limit: int = 100, username: str = Depends(get_current_user_username), db = Depends(get_db)):
-    projects = crud.get_projects(db, skip=skip, limit=limit)
+def read_projects(skip: int = 0, limit: int = 100, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    contractor = current_user.get("company") if current_user.get("role") != "admin" else None
+    projects = crud.get_projects(db, skip=skip, limit=limit, contractor=contractor)
     return [populate_project_relations(db, p) for p in projects]
 
 @app.get("/api/projects/{project_id}", response_model=schemas.Project)
-def read_project(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def read_project(project_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
     db_project = crud.get_project(db, project_id=project_id)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    if current_user.get("role") != "admin" and current_user.get("company"):
+        if db_project.get("contractor") != current_user.get("company"):
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เข้าถึงข้อมูลของโครงการนี้")
     return populate_project_relations(db, db_project)
 
 @app.post("/api/projects", response_model=schemas.Project)
-def create_project(project: schemas.ProjectCreate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def create_project(project: schemas.ProjectCreate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_project = crud.create_project(db=db, project=project, username=username)
     crud.log_user_action(db, username, "สร้าง", "โครงการ", db_project.get("name"), f"งบประมาณ: {db_project.get('budget')} บาท")
     return populate_project_relations(db, db_project)
 
 @app.put("/api/projects/{project_id}", response_model=schemas.Project)
-def update_project(project_id: str, project: schemas.ProjectUpdate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def update_project(project_id: str, project: schemas.ProjectUpdate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_project_old = crud.get_project(db, project_id)
     if not db_project_old:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -480,7 +531,8 @@ def delete_project(project_id: str, current_admin = Depends(check_admin_role), d
 
 # Deliverables Endpoints
 @app.post("/api/projects/{project_id}/deliverables", response_model=schemas.Deliverable)
-def create_project_deliverable(project_id: str, deliverable: schemas.DeliverableCreate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def create_project_deliverable(project_id: str, deliverable: schemas.DeliverableCreate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -489,7 +541,8 @@ def create_project_deliverable(project_id: str, deliverable: schemas.Deliverable
     return db_deliverable
 
 @app.put("/api/deliverables/{deliverable_id}", response_model=schemas.Deliverable)
-def update_deliverable(deliverable_id: str, deliverable: schemas.DeliverableUpdate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def update_deliverable(deliverable_id: str, deliverable: schemas.DeliverableUpdate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_del = crud.get_deliverable(db, deliverable_id)
     if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
@@ -511,18 +564,23 @@ def delete_deliverable(deliverable_id: str, current_admin = Depends(check_admin_
 
 # Purchase Order (PO) Endpoints
 @app.get("/api/purchase-orders", response_model=List[schemas.PurchaseOrder])
-def read_purchase_orders(username: str = Depends(get_current_user_username), db = Depends(get_db)):
-    return crud.get_purchase_orders(db)
+def read_purchase_orders(current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    contractor = current_user.get("company") if current_user.get("role") != "admin" else None
+    return crud.get_purchase_orders(db, contractor=contractor)
 
 @app.get("/api/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
-def read_purchase_order(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def read_purchase_order(po_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if current_user.get("role") != "admin" and current_user.get("company"):
+        if db_po.get("contractor") != current_user.get("company"):
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เข้าถึงข้อมูลใบสั่งซื้อนี้")
     return db_po
 
 @app.post("/api/projects/{project_id}/purchase-orders", response_model=schemas.PurchaseOrder)
-def create_purchase_order(project_id: str, po: schemas.PurchaseOrderCreate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def create_purchase_order(project_id: str, po: schemas.PurchaseOrderCreate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -531,7 +589,8 @@ def create_purchase_order(project_id: str, po: schemas.PurchaseOrderCreate, user
     return db_po
 
 @app.put("/api/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
-def update_purchase_order(po_id: str, po: schemas.PurchaseOrderUpdate, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def update_purchase_order(po_id: str, po: schemas.PurchaseOrderUpdate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_po_old = crud.get_purchase_order(db, po_id)
     if not db_po_old:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -577,7 +636,8 @@ def delete_purchase_order(po_id: str, current_admin = Depends(check_admin_role),
 
 # PO Document Files Upload
 @app.post("/api/purchase-orders/{po_id}/po-file", response_model=schemas.PurchaseOrder)
-def upload_po_file(po_id: str, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def upload_po_file(po_id: str, file: UploadFile = File(...), current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -618,7 +678,8 @@ def upload_po_file(po_id: str, file: UploadFile = File(...), username: str = Dep
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/po-file", response_model=schemas.PurchaseOrder)
-def delete_po_file(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def delete_po_file(po_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -650,7 +711,8 @@ def delete_po_file(po_id: str, username: str = Depends(get_current_user_username
     return db_po
 
 @app.post("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
-def upload_quotation_file(po_id: str, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def upload_quotation_file(po_id: str, file: UploadFile = File(...), current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -689,7 +751,8 @@ def upload_quotation_file(po_id: str, file: UploadFile = File(...), username: st
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
-def delete_quotation_file(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def delete_quotation_file(po_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -719,7 +782,8 @@ def delete_quotation_file(po_id: str, username: str = Depends(get_current_user_u
     return db_po
 
 @app.post("/api/purchase-orders/{po_id}/delivery-file", response_model=schemas.PurchaseOrder)
-def upload_delivery_file(po_id: str, file: UploadFile = File(...), username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def upload_delivery_file(po_id: str, file: UploadFile = File(...), current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -758,7 +822,8 @@ def upload_delivery_file(po_id: str, file: UploadFile = File(...), username: str
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/delivery-file", response_model=schemas.PurchaseOrder)
-def delete_delivery_file(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def delete_delivery_file(po_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -793,9 +858,10 @@ def delete_delivery_file(po_id: str, username: str = Depends(get_current_user_us
 def upload_document(
     project_id: str,
     file: UploadFile = File(...),
-    username: str = Depends(get_current_user_username),
+    current_admin = Depends(check_admin_role),
     db = Depends(get_db)
 ):
+    username = current_admin.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -839,7 +905,8 @@ def upload_document(
     return db_doc
 
 @app.delete("/api/documents/{document_id}")
-def delete_document(document_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def delete_document(document_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_doc = crud.get_document(db, document_id=document_id)
     if not db_doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -875,9 +942,10 @@ def delete_document(document_id: str, username: str = Depends(get_current_user_u
 def upload_guarantee_receipt(
     project_id: str,
     file: UploadFile = File(...),
-    username: str = Depends(get_current_user_username),
+    current_admin = Depends(check_admin_role),
     db = Depends(get_db)
 ):
+    username = current_admin.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -916,7 +984,8 @@ def upload_guarantee_receipt(
     return populate_project_relations(db, db_project)
 
 @app.delete("/api/projects/{project_id}/guarantee-receipt", response_model=schemas.Project)
-def delete_guarantee_receipt(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def delete_guarantee_receipt(project_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -948,9 +1017,10 @@ def delete_guarantee_receipt(project_id: str, username: str = Depends(get_curren
 def upload_guarantee_document(
     project_id: str,
     file: UploadFile = File(...),
-    username: str = Depends(get_current_user_username),
+    current_admin = Depends(check_admin_role),
     db = Depends(get_db)
 ):
+    username = current_admin.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -989,7 +1059,8 @@ def upload_guarantee_document(
     return populate_project_relations(db, db_project)
 
 @app.delete("/api/projects/{project_id}/guarantee-document", response_model=schemas.Project)
-def delete_guarantee_document(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def delete_guarantee_document(project_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+    username = current_admin.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1020,9 +1091,10 @@ def delete_guarantee_document(project_id: str, username: str = Depends(get_curre
 
 # Excel Export Endpoints
 @app.get("/api/exports/projects/excel")
-def export_projects_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def export_projects_excel(query: Optional[str] = None, status: Optional[str] = None, current_user = Depends(get_current_active_user), db = Depends(get_db)):
     try:
-        projects = crud.get_projects(db, skip=0, limit=1000)
+        contractor = current_user.get("company") if current_user.get("role") != "admin" else None
+        projects = crud.get_projects(db, skip=0, limit=1000, contractor=contractor)
         filtered = []
         for p in projects:
             if status and status != "ทั้งหมด":
@@ -1051,9 +1123,10 @@ def export_projects_excel(query: Optional[str] = None, status: Optional[str] = N
         raise HTTPException(status_code=500, detail=f"Error exporting projects Excel: {str(e)}")
 
 @app.get("/api/exports/purchase-orders/excel")
-def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[str] = None, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[str] = None, current_user = Depends(get_current_active_user), db = Depends(get_db)):
     try:
-        pos = crud.get_purchase_orders(db)
+        contractor = current_user.get("company") if current_user.get("role") != "admin" else None
+        pos = crud.get_purchase_orders(db, contractor=contractor)
         filtered = []
         for po in pos:
             po = populate_po_project(db, po)
@@ -1086,11 +1159,14 @@ def export_purchase_orders_excel(query: Optional[str] = None, status: Optional[s
         raise HTTPException(status_code=500, detail=f"Error exporting purchase orders Excel: {str(e)}")
 
 @app.get("/api/exports/projects/{project_id}/excel")
-def export_project_detail_excel(project_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def export_project_detail_excel(project_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
     try:
         project = crud.get_project(db, project_id=project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
+        if current_user.get("role") != "admin" and current_user.get("company"):
+            if project.get("contractor") != current_user.get("company"):
+                raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เข้าถึงข้อมูลของโครงการนี้")
         project = populate_project_relations(db, project)
             
         excel_file = excel_export.export_project_detail_to_excel(project)
@@ -1104,11 +1180,14 @@ def export_project_detail_excel(project_id: str, username: str = Depends(get_cur
         raise HTTPException(status_code=500, detail=f"Error exporting project detail Excel: {str(e)}")
 
 @app.get("/api/exports/purchase-orders/{po_id}/excel")
-def export_po_detail_excel(po_id: str, username: str = Depends(get_current_user_username), db = Depends(get_db)):
+def export_po_detail_excel(po_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
     try:
         po = crud.get_purchase_order(db, po_id=po_id)
         if not po:
             raise HTTPException(status_code=404, detail="Purchase Order not found")
+        if current_user.get("role") != "admin" and current_user.get("company"):
+            if po.get("contractor") != current_user.get("company"):
+                raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เข้าถึงข้อมูลใบสั่งซื้อนี้")
         po = populate_po_project(db, po)
             
         excel_file = excel_export.export_po_detail_to_excel(po)

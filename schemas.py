@@ -8,6 +8,7 @@ class UserBase(BaseModel):
     fullname: str
     role: Optional[str] = "user"
     is_active: Optional[bool] = True
+    company: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
@@ -17,6 +18,10 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+class UserUpdateRoleCompany(BaseModel):
+    role: str
+    company: Optional[str] = None
 
 class UserResetPassword(BaseModel):
     new_password: str

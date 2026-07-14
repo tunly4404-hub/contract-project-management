@@ -39,7 +39,8 @@ def create_user(db, user: schemas.UserCreate):
         "fullname": user.fullname.strip(),
         "role": role_val,
         "is_active": False,  # Approval needed from admin
-        "hashed_password": hashed_pwd
+        "hashed_password": hashed_pwd,
+        "company": user.company.strip() if user.company else None
     }
     
     users_ref.document(user.username.strip()).set(user_data)
@@ -58,10 +59,15 @@ def get_project(db, project_id: str):
         return data
     return None
 
-def get_projects(db, skip: int = 0, limit: int = 100):
+def get_projects(db, skip: int = 0, limit: int = 100, contractor: str = None):
     if db is None:
         return []
-    docs = db.collection("projects").stream()
+        
+    query = db.collection("projects")
+    if contractor:
+        query = query.where("contractor", "==", contractor)
+        
+    docs = query.stream()
     projects = []
     for doc in docs:
         data = doc.to_dict()
@@ -248,10 +254,13 @@ def get_purchase_order(db, po_id: str):
         return data
     return None
 
-def get_purchase_orders(db):
+def get_purchase_orders(db, contractor: str = None):
     if db is None:
         return []
-    docs = db.collection("purchase_orders").stream()
+    query = db.collection("purchase_orders")
+    if contractor:
+        query = query.where("contractor", "==", contractor)
+    docs = query.stream()
     pos = []
     for doc in docs:
         data = doc.to_dict()
@@ -308,11 +317,15 @@ def delete_purchase_order(db, po_id: str):
 
 
 # Dashboard statistics and alerts
-def get_dashboard_stats(db):
+def get_dashboard_stats(db, contractor: str = None):
     if db is None:
         return {"total_projects": 0, "projects_by_status": {}, "active_total_budget": 0.0}
         
-    docs = db.collection("projects").stream()
+    query = db.collection("projects")
+    if contractor:
+        query = query.where("contractor", "==", contractor)
+        
+    docs = query.stream()
     total_projects = 0
     status_counts = {
         "กำลังดำเนินการ": 0,
@@ -338,7 +351,7 @@ def get_dashboard_stats(db):
         "active_total_budget": total_budget
     }
 
-def get_dashboard_alerts(db):
+def get_dashboard_alerts(db, contractor: str = None):
     if db is None:
         return []
         
@@ -365,6 +378,9 @@ def get_dashboard_alerts(db):
             if not project:
                 continue
                 
+            if contractor and project.get("contractor") != contractor:
+                continue
+                
             days_remaining = (due_date - today).days
             alerts.append({
                 "deliverable_id": doc.id,
@@ -379,7 +395,7 @@ def get_dashboard_alerts(db):
     alerts.sort(key=lambda x: x["days_remaining"])
     return alerts
 
-def get_dashboard_po_alerts(db):
+def get_dashboard_po_alerts(db, contractor: str = None):
     if db is None:
         return []
         
@@ -389,6 +405,9 @@ def get_dashboard_po_alerts(db):
     
     for doc in docs:
         po = doc.to_dict()
+        if contractor and po.get("contractor") != contractor:
+            continue
+            
         due_date_str = po.get("due_date")
         if not due_date_str:
             continue

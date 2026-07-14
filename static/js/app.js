@@ -224,12 +224,18 @@ function checkAuthStatus() {
         const initial = (userObj.fullname || userObj.username || "U").charAt(0).toUpperCase();
         document.getElementById("user-avatar-initial").innerText = initial;
         
-        // V5 RBAC: Show/Hide User Management Navigation Tab
+        // V5 RBAC: Show/Hide User Management Navigation Tab and Add Buttons
         const userTab = document.getElementById("tab-users");
+        const addProjBtn = document.getElementById("btn-add-project");
+        const addPoBtn = document.getElementById("btn-add-po");
         if (userObj.role === "admin") {
             userTab.classList.remove("hidden");
+            if (addProjBtn) addProjBtn.classList.remove("hidden");
+            if (addPoBtn) addPoBtn.classList.remove("hidden");
         } else {
             userTab.classList.add("hidden");
+            if (addProjBtn) addProjBtn.classList.add("hidden");
+            if (addPoBtn) addPoBtn.classList.add("hidden");
         }
         
         // Load initial app data
@@ -255,7 +261,14 @@ const DEFAULT_CONTRACTORS = [
     "บริษัท ปาริภัทร จำกัด",
     "ห้างหุ้นส่วนจำกัด สิทธิพรรณ คอนแท๊ก",
     "บริษัท สบายตา ดีเวลลอปเม้นท์ จำกัด",
-    "ห้างหุ้นส่วนจำกัด อลงกรณ์การโยธา"
+    "ห้างหุ้นส่วนจำกัด อลงกรณ์การโยธา",
+    "ห้างหุ้นส่วนจำกัด ไบโอพลังไทย",
+    "บริษัท ศรีสกาว กรีน จำกัด",
+    "หจก.ทีวายริช คอนสตรัคชั่น",
+    "ห้างหุ้นส่วนจำกัด ภูริต คอนสตรัคชั่น",
+    "ห้างหุ้นส่วนจำกัด ณปภัช บุรีรัมย์",
+    "บริษัท พรรดี จํากัด",
+    "บจก.กรีนแลนด์ ปิโตรเลียม"
 ];
 
 function getContractors() {
@@ -870,6 +883,11 @@ function renderProjectsTable(projects) {
             ? `<button onclick="deleteProject('${project.id}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
             : "";
         
+        // V5 RBAC: Show edit button for admins only
+        const editButton = isAdmin 
+            ? `<button onclick="editProject('${project.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>` 
+            : "";
+        
         const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/50 transition duration-150";
         row.innerHTML = `
@@ -886,7 +904,7 @@ function renderProjectsTable(projects) {
             </td>
             <td class="px-6 py-4 text-center whitespace-nowrap text-xs font-medium space-x-2">
                 <button onclick="openDetailModal('${project.id}')" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition duration-150">ดูรายละเอียด</button>
-                <button onclick="editProject('${project.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>
+                ${editButton}
                 ${deleteButton}
             </td>
         `;
@@ -1292,6 +1310,18 @@ async function openDetailModal(id) {
         renderDeliverablesTable(project.deliverables);
         populateProjectDetailsBreakdown(project);
         
+        // Hide upload and add deliverable forms if not admin
+        const isAdmin = isCurrentUserAdmin();
+        const docUploadContainer = document.getElementById("detail-doc-upload-container");
+        const addDelivForm = document.getElementById("add-deliverable-form");
+        if (isAdmin) {
+            if (docUploadContainer) docUploadContainer.classList.remove("hidden");
+            if (addDelivForm) addDelivForm.classList.remove("hidden");
+        } else {
+            if (docUploadContainer) docUploadContainer.classList.add("hidden");
+            if (addDelivForm) addDelivForm.classList.add("hidden");
+        }
+        
         document.getElementById("detail-modal").classList.remove("hidden");
     } catch (error) {
         console.error("Error loading project details:", error);
@@ -1348,7 +1378,11 @@ function renderGuaranteeReceiptFile(project) {
             </div>
         `;
     } else {
-        uploadContainer.classList.remove("hidden");
+        if (isAdmin) {
+            uploadContainer.classList.remove("hidden");
+        } else {
+            uploadContainer.classList.add("hidden");
+        }
         fileContainer.innerHTML = `
             <span class="text-slate-400 italic">ยังไม่ได้อัปโหลดหลักฐานใบเสร็จ</span>
         `;
@@ -1442,7 +1476,11 @@ function renderGuaranteeDocumentFile(project) {
             </div>
         `;
     } else {
-        uploadContainer.classList.remove("hidden");
+        if (isAdmin) {
+            uploadContainer.classList.remove("hidden");
+        } else {
+            uploadContainer.classList.add("hidden");
+        }
         fileContainer.innerHTML = `
             <span class="text-slate-400 italic">ยังไม่ได้อัปโหลดหลักฐานการค้ำประกัน</span>
         `;
@@ -1876,6 +1914,11 @@ function renderPOsTable(pos) {
         const deleteButton = isAdmin 
             ? `<button onclick="deletePO('${po.id}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
             : "";
+            
+        // V5 RBAC: Show PO edit button only for Admin
+        const editButton = isAdmin 
+            ? `<button onclick="editPO('${po.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>` 
+            : "";
         
         const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/50 transition duration-150";
@@ -1885,13 +1928,13 @@ function renderPOsTable(pos) {
             <td class="px-6 py-4 text-slate-500 text-sm">${po.owner || "-"}</td>
             <td class="px-6 py-4 font-bold text-slate-900 text-sm">${formatCurrency(po.budget)}</td>
             <td class="px-6 py-4 text-slate-500 text-xs">${formatThaiDate(po.due_date)}</td>
-            <td class="px-6 py-4 text-slate-600 text-sm">${po.contractor}</td>
+            <td class="px-6 py-4 text-slate-650 text-sm font-medium text-slate-650">${po.contractor}</td>
             <td class="px-6 py-4">
                 <span class="${badgeColor} text-xs px-2.5 py-0.5 rounded-full font-bold">${po.delivery_status}</span>
             </td>
             <td class="px-6 py-4 text-center whitespace-nowrap text-xs font-medium space-x-2">
                 <button onclick="openPODetailModal('${po.id}')" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition duration-150">ดูรายละเอียด</button>
-                <button onclick="editPO('${po.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>
+                ${editButton}
                 ${deleteButton}
             </td>
         `;
@@ -2448,25 +2491,32 @@ function renderUsersTable(users) {
             ? `<span class="text-xs text-slate-400 italic font-semibold">บัญชีของคุณ</span>` 
             : `
             <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" ${u.is_active ? 'checked' : ''} onclick="toggleUserActive(${u.id})" class="sr-only peer">
+                <input type="checkbox" ${u.is_active ? 'checked' : ''} onclick="toggleUserActive('${u.id}')" class="sr-only peer">
                 <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
             </label>
             `;
             
         // Reset Password Button
         const changePwdBtn = `
-            <button onclick="openResetPasswordModal(${u.id}, '${u.username}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150 flex items-center gap-1 font-semibold">
+            <button onclick="openResetPasswordModal('${u.id}', '${u.username}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150 flex items-center gap-1 font-semibold">
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m-2-2a2 2 0 00-2 2m2-2a2 2 0 002 2m0 0V19a2 2 0 01-2 2h-3a2 2 0 01-2-2v-3a2 2 0 00-2-2H9a2 2 0 00-2-2V9a2 2 0 012-2h6z" />
                 </svg>
                 แก้ไขรหัสผ่าน
             </button>
         `;
+        
+        // Edit Role/Company Button
+        const editUserBtn = `
+            <button onclick="openEditUserModal('${u.id}', '${u.username}', '${u.fullname}', '${u.role}', '${u.company || ''}')" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition duration-150 font-semibold">
+                แก้ไขสิทธิ์
+            </button>
+        `;
             
         // Delete button
         const deleteBtn = isSelf 
             ? "" 
-            : `<button onclick="deleteUser(${u.id}, '${u.username}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150 font-semibold">ลบ</button>`;
+            : `<button onclick="deleteUser('${u.id}', '${u.username}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150 font-semibold">ลบ</button>`;
             
         const statusBadge = u.is_active 
             ? `<span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold">ปกติ</span>`
@@ -2483,9 +2533,11 @@ function renderUsersTable(users) {
                     ${u.role}
                 </span>
             </td>
+            <td class="px-6 py-4 font-semibold text-slate-600">${u.company || "-"}</td>
             <td class="px-6 py-4">${statusBadge}</td>
             <td class="px-6 py-4 flex items-center gap-2 justify-center">
                 <div class="flex items-center gap-2 mr-2">${activeToggle}</div>
+                ${editUserBtn}
                 ${changePwdBtn}
                 ${deleteBtn}
             </td>
@@ -2503,6 +2555,89 @@ function openResetPasswordModal(userId, username) {
 
 function closeResetPasswordModal() {
     document.getElementById("reset-password-modal").classList.add("hidden");
+}
+
+function openEditUserModal(userId, username, fullname, role, company) {
+    document.getElementById("edit-user-id").value = userId;
+    document.getElementById("edit-user-username-display").innerText = username;
+    document.getElementById("edit-user-fullname-display").innerText = fullname;
+    document.getElementById("edit-user-role").value = role;
+    
+    // Populate company dropdown
+    populateEditUserCompanyDropdown(company);
+    
+    // Toggle container visibility depending on role
+    handleEditUserRoleChange();
+    
+    document.getElementById("edit-user-modal").classList.remove("hidden");
+}
+
+function closeEditUserModal() {
+    document.getElementById("edit-user-modal").classList.add("hidden");
+}
+
+function handleEditUserRoleChange() {
+    const role = document.getElementById("edit-user-role").value;
+    const container = document.getElementById("edit-user-company-container");
+    const select = document.getElementById("edit-user-company");
+    if (role === "admin") {
+        container.classList.add("hidden");
+        select.removeAttribute("required");
+    } else {
+        container.classList.remove("hidden");
+        select.setAttribute("required", "required");
+    }
+}
+
+function populateEditUserCompanyDropdown(selectedVal = "") {
+    const select = document.getElementById("edit-user-company");
+    if (!select) return;
+    select.innerHTML = "";
+    
+    const promptOpt = document.createElement("option");
+    promptOpt.value = "";
+    promptOpt.innerText = "-- เลือกบริษัท/ห้างหุ้นส่วน --";
+    select.appendChild(promptOpt);
+    
+    const contractors = getContractors();
+    contractors.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.innerText = c;
+        if (c === selectedVal) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+async function submitEditUser(event) {
+    event.preventDefault();
+    const userId = document.getElementById("edit-user-id").value;
+    const role = document.getElementById("edit-user-role").value;
+    const company = role === "admin" ? null : document.getElementById("edit-user-company").value;
+    
+    if (role === "user" && !company) {
+        showToast("กรุณาเลือกบริษัทสำหรับสิทธิ์ผู้ใช้ทั่วไป", "error");
+        return;
+    }
+    
+    try {
+        const response = await secureFetch(`/api/users/${userId}/role-company`, {
+            method: "PUT",
+            body: JSON.stringify({ role, company })
+        });
+        
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "แก้ไขสิทธิ์ผู้ใช้ไม่สำเร็จ");
+        }
+        
+        showToast("บันทึกการแก้ไขสิทธิ์ผู้ใช้เรียบร้อยแล้ว", "success");
+        closeEditUserModal();
+        fetchUsers();
+    } catch (error) {
+        console.error("Error editing user role/company:", error);
+        showToast(error.message, "error");
+    }
 }
 
 async function submitResetPassword(event) {

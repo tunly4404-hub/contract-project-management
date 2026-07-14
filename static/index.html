@@ -377,7 +377,7 @@
                         <h1 class="text-2xl font-bold text-slate-900 tracking-tight">รายชื่อโครงการและสัญญา</h1>
                         <p class="text-sm text-slate-500 mt-1">บริหารโครงการหลัก, สัญญาค้ำประกันการทำงาน และเอกสารสัญญาแนบ</p>
                     </div>
-                    <button onclick="openProjectModal()" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100">
+                    <button id="btn-add-project" onclick="openProjectModal()" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100">
                         <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                         </svg>
@@ -466,7 +466,7 @@
                         <h1 class="text-2xl font-bold text-slate-900 tracking-tight">ระบบบริหารจัดการใบสั่งซื้อ (PO)</h1>
                         <p class="text-sm text-slate-500 mt-1">บันทึกใบสั่งซื้อ, การกำหนดส่งมอบ และระบบติดตามใบส่งของแยกโครงการ</p>
                     </div>
-                    <button onclick="openPOModal()" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100">
+                    <button id="btn-add-po" onclick="openPOModal()" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-sm shadow-indigo-100">
                         <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                         </svg>
@@ -585,6 +585,7 @@
                                     <th scope="col" class="px-6 py-4">ชื่อผู้ใช้ (Username)</th>
                                     <th scope="col" class="px-6 py-4">ชื่อจริง - นามสกุล</th>
                                     <th scope="col" class="px-6 py-4">ระดับสิทธิ์ (Role)</th>
+                                    <th scope="col" class="px-6 py-4">บริษัท/ห้างหุ้นส่วนคู่สัญญา</th>
                                     <th scope="col" class="px-6 py-4">สถานะ (Status)</th>
                                     <th scope="col" class="px-6 py-4 text-center">จัดการ</th>
                                 </tr>
@@ -1000,7 +1001,7 @@
                         </div>
 
                         <!-- Upload Additional Doc Form -->
-                        <div class="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100 flex items-center justify-between gap-3">
+                        <div id="detail-doc-upload-container" class="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100 flex items-center justify-between gap-3">
                             <input type="file" id="detail-doc-upload-input" class="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 flex-1">
                             <button onclick="uploadDetailDocument()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
                                 อัปโหลด
@@ -1027,7 +1028,7 @@
                     </div>
 
                     <!-- Add Deliverable Quick Form -->
-                    <form onsubmit="addDeliverable(event)" class="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-3">
+                    <form id="add-deliverable-form" onsubmit="addDeliverable(event)" class="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-3">
                         <p class="text-xs font-semibold text-slate-700">เพิ่มรายการส่งมอบ/งวดงานใหม่:</p>
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <input type="text" id="add-deliv-name" required placeholder="ชื่อรายการส่งมอบ / วัสดุ..." class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
@@ -1454,6 +1455,48 @@
                 <div class="pt-4 border-t border-slate-100 flex justify-end space-x-2">
                     <button type="button" onclick="closeResetPasswordModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 transition duration-150">ยกเลิก</button>
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition duration-150 shadow-sm">บันทึกรหัสผ่านใหม่</button>
+                </div>
+            </form>
+    <!-- MODAL 6: ADMIN EDIT USER ROLE & COMPANY (RBAC / Multi-Tenancy) -->
+    <div id="edit-user-modal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden animate-fade-in">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+                <h3 class="font-bold text-base text-slate-900">แก้ไขข้อมูลสิทธิ์และบริษัทผู้ใช้งาน</h3>
+                <button onclick="closeEditUserModal()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <!-- Modal Body -->
+            <form onsubmit="submitEditUser(event)" class="p-6 space-y-4">
+                <input type="hidden" id="edit-user-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase">ชื่อผู้ใช้ (Username)</label>
+                    <span id="edit-user-username-display" class="block mt-1 font-mono font-bold text-indigo-600">-</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase">ชื่อจริง - นามสกุล</label>
+                    <span id="edit-user-fullname-display" class="block mt-1 text-slate-800">-</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase">ระดับสิทธิ์ (Role) <span class="text-rose-500">*</span></label>
+                    <select id="edit-user-role" required onchange="handleEditUserRoleChange()" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                        <option value="user">user (ผู้เข้าชม/บริษัทคู่สัญญา)</option>
+                        <option value="admin">admin (ผู้ดูแลระบบหลัก)</option>
+                    </select>
+                </div>
+                <div id="edit-user-company-container">
+                    <label class="block text-xs font-bold text-slate-700 uppercase">บริษัท / ห้างหุ้นส่วนคู่สัญญา <span class="text-rose-500">*</span></label>
+                    <select id="edit-user-company" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50">
+                        <!-- Contractors populated dynamically -->
+                    </select>
+                </div>
+                <!-- Action Buttons -->
+                <div class="pt-4 border-t border-slate-100 flex justify-end space-x-2">
+                    <button type="button" onclick="closeEditUserModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 transition duration-150">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition duration-150 shadow-sm">บันทึกข้อมูล</button>
                 </div>
             </form>
         </div>
