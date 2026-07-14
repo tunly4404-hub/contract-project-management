@@ -51,6 +51,36 @@ def auto_seed_db():
             )
             crud.create_user(firestore_db, sittipan_schema)
             sittipan_doc_ref.update({"role": "user", "is_active": True})
+            
+        # Seed 12 Company Accounts
+        companies_seed = [
+            {"username": "modngan", "password": "pwd_modngan", "fullname": "ผู้ใช้ บริษัท มดงาน บุษยมาศ จำกัด", "company": "บริษัท มดงาน บุษยมาศ จำกัด"},
+            {"username": "pariphat", "password": "pwd_pariphat", "fullname": "ผู้ใช้ บริษัท ปาริภัทร จำกัด", "company": "บริษัท ปาริภัทร จำกัด"},
+            {"username": "sittipan_c", "password": "pwd_sittipan", "fullname": "ผู้ใช้ ห้างหุ้นส่วนจำกัด สิทธิพรรณ คอนแท๊ก", "company": "ห้างหุ้นส่วนจำกัด สิทธิพรรณ คอนแท๊ก"},
+            {"username": "sabaita", "password": "pwd_sabaita", "fullname": "ผู้ใช้ บริษัท สบายตา ดีเวลลอปเม้นท์ จำกัด", "company": "บริษัท สบายตา ดีเวลลอปเม้นท์ จำกัด"},
+            {"username": "alongkorn", "password": "pwd_alongkorn", "fullname": "ผู้ใช้ ห้างหุ้นส่วนจำกัด อลงกรณ์การโยธา", "company": "ห้างหุ้นส่วนจำกัด อลงกรณ์การโยธา"},
+            {"username": "biopalang", "password": "pwd_biopalang", "fullname": "ผู้ใช้ ห้างหุ้นส่วนจำกัด ไบโอพลังไทย", "company": "ห้างหุ้นส่วนจำกัด ไบโอพลังไทย"},
+            {"username": "srisakao", "password": "pwd_srisakao", "fullname": "ผู้ใช้ บริษัท ศรีสกาว กรีน จำกัด", "company": "บริษัท ศรีสกาว กรีน จำกัด"},
+            {"username": "tyrich", "password": "pwd_tyrich", "fullname": "ผู้ใช้ หจก.ทีวายริช คอนสตรัคชั่น", "company": "หจก.ทีวายริช คอนสตรัคชั่น"},
+            {"username": "phurit", "password": "pwd_phurit", "fullname": "ผู้ใช้ ห้างหุ้นส่วนจำกัด ภูริต คอนสตรัคชั่น", "company": "ห้างหุ้นส่วนจำกัด ภูริต คอนสตรัคชั่น"},
+            {"username": "napaphat", "password": "pwd_napaphat", "fullname": "ผู้ใช้ ห้างหุ้นส่วนจำกัด ณปภัช บุรีรัมย์", "company": "ห้างหุ้นส่วนจำกัด ณปภัช บุรีรัมย์"},
+            {"username": "porndee", "password": "pwd_porndee", "fullname": "ผู้ใช้ บริษัท พรรดี จํากัด", "company": "บริษัท พรรดี จํากัด"},
+            {"username": "greenland", "password": "pwd_greenland", "fullname": "ผู้ใช้ บจก.กรีนแลนด์ ปิโตรเลียม", "company": "บจก.กรีนแลนด์ ปิโตรเลียม"}
+        ]
+        
+        for u_seed in companies_seed:
+            u_doc_ref = firestore_db.collection("users").document(u_seed["username"])
+            if not u_doc_ref.get().exists:
+                print(f"Auto-seeding company user {u_seed['username']} on startup...")
+                u_schema = schemas.UserCreate(
+                    username=u_seed["username"],
+                    fullname=u_seed["fullname"],
+                    role="user",
+                    password=u_seed["password"],
+                    company=u_seed["company"]
+                )
+                crud.create_user(firestore_db, u_schema)
+                u_doc_ref.update({"role": "user", "is_active": True})
     except Exception as e:
         print(f"Error during database auto-seeding: {e}")
 
@@ -477,18 +507,33 @@ def read_project(project_id: str, current_user = Depends(get_current_active_user
     return populate_project_relations(db, db_project)
 
 @app.post("/api/projects", response_model=schemas.Project)
-def create_project(project: schemas.ProjectCreate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def create_project(project: schemas.ProjectCreate, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
+    if user.role != "admin":
+        if not user.company:
+            raise HTTPException(status_code=403, detail="สิทธิ์ผู้ใช้งานของท่านไม่ได้ระบุชื่อบริษัท/ห้างหุ้นส่วนคู่สัญญา")
+        # Force the project contractor to be their assigned company
+        project.contractor = user.company
+        
     db_project = crud.create_project(db=db, project=project, username=username)
     crud.log_user_action(db, username, "สร้าง", "โครงการ", db_project.get("name"), f"งบประมาณ: {db_project.get('budget')} บาท")
     return populate_project_relations(db, db_project)
 
 @app.put("/api/projects/{project_id}", response_model=schemas.Project)
-def update_project(project_id: str, project: schemas.ProjectUpdate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def update_project(project_id: str, project: schemas.ProjectUpdate, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project_old = crud.get_project(db, project_id)
     if not db_project_old:
         raise HTTPException(status_code=404, detail="Project not found")
+        
+    if user.role != "admin":
+        if db_project_old.get("contractor") != user.company:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์แก้ไขโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
+        # Ensure contractor cannot be modified to a different company
+        project.contractor = user.company
+        
     db_project = crud.update_project(db=db, project_id=project_id, project=project, username=username)
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -531,31 +576,49 @@ def delete_project(project_id: str, current_admin = Depends(check_admin_role), d
 
 # Deliverables Endpoints
 @app.post("/api/projects/{project_id}/deliverables", response_model=schemas.Deliverable)
-def create_project_deliverable(project_id: str, deliverable: schemas.DeliverableCreate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def create_project_deliverable(project_id: str, deliverable: schemas.DeliverableCreate, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role != "admin":
+        if db_project.get("contractor") != user.company:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เพิ่มงวดงานในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
+            
     db_deliverable = crud.create_deliverable(db=db, deliverable=deliverable, project_id=project_id, username=username)
     crud.log_user_action(db, username, "สร้าง", "งวดงานสัญญาหลัก", db_deliverable.get("name"), f"สร้างงวดงานในโครงการ '{db_project.get('name')}'")
     return db_deliverable
 
 @app.put("/api/deliverables/{deliverable_id}", response_model=schemas.Deliverable)
-def update_deliverable(deliverable_id: str, deliverable: schemas.DeliverableUpdate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def update_deliverable(deliverable_id: str, deliverable: schemas.DeliverableUpdate, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_del = crud.get_deliverable(db, deliverable_id)
     if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
+    if user.role != "admin":
+        project = crud.get_project(db, db_del.get("project_id"))
+        if not project or project.get("contractor") != user.company:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์แก้ไขงวดงานในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
+            
     db_deliverable = crud.update_deliverable(db=db, deliverable_id=deliverable_id, deliverable=deliverable, username=username)
     crud.log_user_action(db, username, "แก้ไข", "งวดงานสัญญาหลัก", db_deliverable.get("name"), f"แก้ไขรายละเอียดงวดงาน (สถานะ: {db_deliverable.get('status')})")
     return db_deliverable
 
 @app.delete("/api/deliverables/{deliverable_id}")
-def delete_deliverable(deliverable_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
+def delete_deliverable(deliverable_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_del = crud.get_deliverable(db, deliverable_id)
     if not db_del:
         raise HTTPException(status_code=404, detail="Deliverable not found")
-    crud.log_user_action(db, current_admin.username, "ลบ", "งวดงานสัญญาหลัก", db_del.get("name"), f"ลบงวดงาน ID: {deliverable_id}")
+    if user.role != "admin":
+        project = crud.get_project(db, db_del.get("project_id"))
+        if not project or project.get("contractor") != user.company:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบงวดงานในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
+            
+    crud.log_user_action(db, username, "ลบ", "งวดงานสัญญาหลัก", db_del.get("name"), f"ลบงวดงาน ID: {deliverable_id}")
     success = crud.delete_deliverable(db=db, deliverable_id=deliverable_id)
     if not success:
         raise HTTPException(status_code=404, detail="Deliverable not found")
@@ -579,23 +642,38 @@ def read_purchase_order(po_id: str, current_user = Depends(get_current_active_us
     return db_po
 
 @app.post("/api/projects/{project_id}/purchase-orders", response_model=schemas.PurchaseOrder)
-def create_purchase_order(project_id: str, po: schemas.PurchaseOrderCreate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def create_purchase_order(project_id: str, po: schemas.PurchaseOrderCreate, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+        
+    if user.role != "admin":
+        if db_project.get("contractor") != user.company:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์เพิ่มใบสั่งซื้อในโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
+        # Force contractor to be user's company
+        po.contractor = user.company
+        
     db_po = crud.create_purchase_order(db=db, po=po, project_id=project_id, username=username)
     crud.log_user_action(db, username, "สร้าง", "ใบสั่งซื้อ PO", db_po.get("po_number"), f"สร้างใบสั่งซื้อ PO งบประมาณ: {db_po.get('budget')} บาท ในโครงการ '{db_project.get('name')}'")
     return db_po
 
 @app.put("/api/purchase-orders/{po_id}", response_model=schemas.PurchaseOrder)
-def update_purchase_order(po_id: str, po: schemas.PurchaseOrderUpdate, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def update_purchase_order(po_id: str, po: schemas.PurchaseOrderUpdate, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_po_old = crud.get_purchase_order(db, po_id)
     if not db_po_old:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+        
+    if user.role != "admin":
+        if db_po_old.get("contractor") != user.company:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์แก้ไขใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
+        # Ensure contractor cannot be modified
+        po.contractor = user.company
+        
     old_delivery_status = db_po_old.get("delivery_status")
-    
     db_po = crud.update_purchase_order(db=db, po_id=po_id, po=po, username=username)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
@@ -636,11 +714,14 @@ def delete_purchase_order(po_id: str, current_admin = Depends(check_admin_role),
 
 # PO Document Files Upload
 @app.post("/api/purchase-orders/{po_id}/po-file", response_model=schemas.PurchaseOrder)
-def upload_po_file(po_id: str, file: UploadFile = File(...), current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def upload_po_file(po_id: str, file: UploadFile = File(...), current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if user.role != "admin" and db_po.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
     try:
@@ -678,11 +759,14 @@ def upload_po_file(po_id: str, file: UploadFile = File(...), current_admin = Dep
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/po-file", response_model=schemas.PurchaseOrder)
-def delete_po_file(po_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def delete_po_file(po_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if user.role != "admin" and db_po.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     po_file_path = db_po.get("po_file_path")
     if po_file_path:
@@ -711,11 +795,14 @@ def delete_po_file(po_id: str, current_admin = Depends(check_admin_role), db = D
     return db_po
 
 @app.post("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
-def upload_quotation_file(po_id: str, file: UploadFile = File(...), current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def upload_quotation_file(po_id: str, file: UploadFile = File(...), current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if user.role != "admin" and db_po.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
     try:
@@ -751,11 +838,14 @@ def upload_quotation_file(po_id: str, file: UploadFile = File(...), current_admi
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/quotation-file", response_model=schemas.PurchaseOrder)
-def delete_quotation_file(po_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def delete_quotation_file(po_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if user.role != "admin" and db_po.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     quot_path = db_po.get("quotation_file_path")
     if quot_path:
@@ -782,11 +872,14 @@ def delete_quotation_file(po_id: str, current_admin = Depends(check_admin_role),
     return db_po
 
 @app.post("/api/purchase-orders/{po_id}/delivery-file", response_model=schemas.PurchaseOrder)
-def upload_delivery_file(po_id: str, file: UploadFile = File(...), current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def upload_delivery_file(po_id: str, file: UploadFile = File(...), current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if user.role != "admin" and db_po.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
     try:
@@ -822,11 +915,14 @@ def upload_delivery_file(po_id: str, file: UploadFile = File(...), current_admin
     return db_po
 
 @app.delete("/api/purchase-orders/{po_id}/delivery-file", response_model=schemas.PurchaseOrder)
-def delete_delivery_file(po_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def delete_delivery_file(po_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_po = crud.get_purchase_order(db, po_id=po_id)
     if not db_po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+    if user.role != "admin" and db_po.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบไฟล์สำหรับใบสั่งซื้อของบริษัท/ห้างหุ้นส่วนอื่น")
         
     deliv_path = db_po.get("delivery_file_path")
     if deliv_path:
@@ -858,13 +954,16 @@ def delete_delivery_file(po_id: str, current_admin = Depends(check_admin_role), 
 def upload_document(
     project_id: str,
     file: UploadFile = File(...),
-    current_admin = Depends(check_admin_role),
+    current_user = Depends(get_current_active_user),
     db = Depends(get_db)
 ):
-    username = current_admin.username
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role != "admin" and db_project.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดเอกสารสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     try:
         file_content = file.file.read()
@@ -905,11 +1004,16 @@ def upload_document(
     return db_doc
 
 @app.delete("/api/documents/{document_id}")
-def delete_document(document_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def delete_document(document_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_doc = crud.get_document(db, document_id=document_id)
     if not db_doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    if user.role != "admin":
+        project = crud.get_project(db, db_doc.get("project_id"))
+        if not project or project.get("contractor") != user.company:
+            raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบเอกสารของโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     url_path = db_doc.get("url_path")
     if url_path:
@@ -942,13 +1046,16 @@ def delete_document(document_id: str, current_admin = Depends(check_admin_role),
 def upload_guarantee_receipt(
     project_id: str,
     file: UploadFile = File(...),
-    current_admin = Depends(check_admin_role),
+    current_user = Depends(get_current_active_user),
     db = Depends(get_db)
 ):
-    username = current_admin.username
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role != "admin" and db_project.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดใบเสร็จค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
     try:
@@ -984,11 +1091,14 @@ def upload_guarantee_receipt(
     return populate_project_relations(db, db_project)
 
 @app.delete("/api/projects/{project_id}/guarantee-receipt", response_model=schemas.Project)
-def delete_guarantee_receipt(project_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def delete_guarantee_receipt(project_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role != "admin" and db_project.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบใบเสร็จค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     receipt_path = db_project.get("guarantee_receipt_path")
     if receipt_path:
@@ -1017,13 +1127,16 @@ def delete_guarantee_receipt(project_id: str, current_admin = Depends(check_admi
 def upload_guarantee_document(
     project_id: str,
     file: UploadFile = File(...),
-    current_admin = Depends(check_admin_role),
+    current_user = Depends(get_current_active_user),
     db = Depends(get_db)
 ):
-    username = current_admin.username
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role != "admin" and db_project.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์อัปโหลดเอกสารค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     validate_uploaded_file(file)
     try:
@@ -1059,11 +1172,14 @@ def upload_guarantee_document(
     return populate_project_relations(db, db_project)
 
 @app.delete("/api/projects/{project_id}/guarantee-document", response_model=schemas.Project)
-def delete_guarantee_document(project_id: str, current_admin = Depends(check_admin_role), db = Depends(get_db)):
-    username = current_admin.username
+def delete_guarantee_document(project_id: str, current_user = Depends(get_current_active_user), db = Depends(get_db)):
+    user = excel_export.DictObject(current_user)
+    username = user.username
     db_project = crud.get_project(db, project_id=project_id)
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role != "admin" and db_project.get("contractor") != user.company:
+        raise HTTPException(status_code=403, detail="ไม่มีสิทธิ์ลบเอกสารค้ำประกันสำหรับโครงการของบริษัท/ห้างหุ้นส่วนอื่น")
         
     doc_path = db_project.get("guarantee_document_path")
     if doc_path:

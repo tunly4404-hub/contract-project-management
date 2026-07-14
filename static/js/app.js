@@ -230,13 +230,11 @@ function checkAuthStatus() {
         const addPoBtn = document.getElementById("btn-add-po");
         if (userObj.role === "admin") {
             userTab.classList.remove("hidden");
-            if (addProjBtn) addProjBtn.classList.remove("hidden");
-            if (addPoBtn) addPoBtn.classList.remove("hidden");
         } else {
             userTab.classList.add("hidden");
-            if (addProjBtn) addProjBtn.classList.add("hidden");
-            if (addPoBtn) addPoBtn.classList.add("hidden");
         }
+        if (addProjBtn) addProjBtn.classList.remove("hidden");
+        if (addPoBtn) addPoBtn.classList.remove("hidden");
         
         // Load initial app data
         switchTab("dashboard");
@@ -299,6 +297,10 @@ function populateContractorsDropdown(selectedVal = "") {
     promptOpt.innerText = "-- เลือกบริษัท/ห้างหุ้นส่วน --";
     select.appendChild(promptOpt);
     
+    const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const userCompany = currentUser.company;
+    
     const contractors = getContractors();
     contractors.forEach(c => {
         const opt = document.createElement("option");
@@ -313,6 +315,13 @@ function populateContractorsDropdown(selectedVal = "") {
     addOpt.innerText = "+ เพิ่มบริษัทใหม่...";
     if (selectedVal === "ADD_NEW") addOpt.selected = true;
     select.appendChild(addOpt);
+    
+    if (!isAdmin && userCompany) {
+        select.value = userCompany;
+        select.disabled = true;
+    } else {
+        select.disabled = false;
+    }
     
     toggleCustomContractorInput();
 }
@@ -373,6 +382,10 @@ function populatePOContractorsDropdown(selectedVal = "") {
     promptOpt.innerText = "-- เลือกผู้รับผิดชอบ PO --";
     select.appendChild(promptOpt);
     
+    const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const userCompany = currentUser.company;
+    
     const contractors = getPOContractors();
     contractors.forEach(c => {
         const opt = document.createElement("option");
@@ -387,6 +400,13 @@ function populatePOContractorsDropdown(selectedVal = "") {
     addOpt.innerText = "+ เพิ่มบริษัทใหม่...";
     if (selectedVal === "ADD_NEW") addOpt.selected = true;
     select.appendChild(addOpt);
+    
+    if (!isAdmin && userCompany) {
+        select.value = userCompany;
+        select.disabled = true;
+    } else {
+        select.disabled = false;
+    }
     
     toggleCustomPOContractorInput();
 }
@@ -883,8 +903,10 @@ function renderProjectsTable(projects) {
             ? `<button onclick="deleteProject('${project.id}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
             : "";
         
-        // V5 RBAC: Show edit button for admins only
-        const editButton = isAdmin 
+        // Show edit button for admins or the company that owns the project
+        const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+        const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
+        const editButton = isOwner 
             ? `<button onclick="editProject('${project.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>` 
             : "";
         
@@ -1310,11 +1332,13 @@ async function openDetailModal(id) {
         renderDeliverablesTable(project.deliverables);
         populateProjectDetailsBreakdown(project);
         
-        // Hide upload and add deliverable forms if not admin
+        // Hide upload and add deliverable forms if not admin and not project owner
         const isAdmin = isCurrentUserAdmin();
+        const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+        const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
         const docUploadContainer = document.getElementById("detail-doc-upload-container");
         const addDelivForm = document.getElementById("add-deliverable-form");
-        if (isAdmin) {
+        if (isOwner) {
             if (docUploadContainer) docUploadContainer.classList.remove("hidden");
             if (addDelivForm) addDelivForm.classList.remove("hidden");
         } else {
@@ -1346,12 +1370,14 @@ function renderGuaranteeReceiptFile(project) {
     document.getElementById("detail-guarantee-receipt-input").value = "";
     
     const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
     
     if (project.guarantee_receipt_path) {
         uploadContainer.classList.add("hidden");
         
-        // V5 RBAC: Show file delete only for Admin
-        const deleteButton = isAdmin 
+        // Show file delete for owners/admins
+        const deleteButton = isOwner 
             ? `
             <button onclick="deleteGuaranteeReceipt('${project.id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบใบเสร็จ">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1378,7 +1404,7 @@ function renderGuaranteeReceiptFile(project) {
             </div>
         `;
     } else {
-        if (isAdmin) {
+        if (isOwner) {
             uploadContainer.classList.remove("hidden");
         } else {
             uploadContainer.classList.add("hidden");
@@ -1445,11 +1471,13 @@ function renderGuaranteeDocumentFile(project) {
     document.getElementById("detail-guarantee-document-input").value = "";
     
     const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const isOwner = isAdmin || (currentUser.company && project.contractor === currentUser.company);
     
     if (project.guarantee_document_path) {
         uploadContainer.classList.add("hidden");
         
-        const deleteButton = isAdmin 
+        const deleteButton = isOwner 
             ? `
             <button onclick="deleteGuaranteeDocument('${project.id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบหลักฐานค้ำประกัน">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1476,7 +1504,7 @@ function renderGuaranteeDocumentFile(project) {
             </div>
         `;
     } else {
-        if (isAdmin) {
+        if (isOwner) {
             uploadContainer.classList.remove("hidden");
         } else {
             uploadContainer.classList.add("hidden");
@@ -1604,13 +1632,16 @@ function renderDeliverablesTable(deliverables) {
     deliverables.sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
     
     const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const project = projectsCache.find(p => p.id === currentProjectId);
+    const isOwner = isAdmin || (project && currentUser.company && project.contractor === currentUser.company);
     
     deliverables.forEach(del => {
         const isDone = del.status === "ส่งมอบแล้ว";
         const badgeColor = isDone ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800";
         
-        // V5 RBAC: Show deliverable delete button only for admins
-        const deleteButton = isAdmin 
+        // Show deliverable delete button for owners/admins
+        const deleteButton = isOwner 
             ? `
             <button onclick="deleteDeliverable('${del.id}')" class="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded transition duration-150" title="ลบงวดงาน">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1618,6 +1649,20 @@ function renderDeliverablesTable(deliverables) {
                 </svg>
             </button>
             ` 
+            : "";
+            
+        const actionButtons = isOwner
+            ? `
+            <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
+                ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
+            </button>
+            <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+            </button>
+            ${deleteButton}
+            `
             : "";
         
         const row = document.createElement("tr");
@@ -1635,15 +1680,7 @@ function renderDeliverablesTable(deliverables) {
                     <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
                 </td>
                 <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
-                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
-                        ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
-                    </button>
-                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                    </button>
-                    ${deleteButton}
+                    ${actionButtons}
                 </td>
             `;
         } else {
@@ -1657,15 +1694,7 @@ function renderDeliverablesTable(deliverables) {
                     <span class="${badgeColor} px-2 py-0.5 rounded font-bold">${del.status}</span>
                 </td>
                 <td class="px-4 py-3 text-center whitespace-nowrap space-x-1.5">
-                    <button onclick="toggleDeliverableStatus('${del.id}', '${del.status}')" class="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition duration-150">
-                        ${isDone ? "ทำเป็นรอดำเนินการ" : "ทำเป็นส่งมอบแล้ว"}
-                    </button>
-                    <button onclick="editDeliverable('${del.id}')" class="text-amber-600 hover:text-amber-800 hover:bg-amber-50 p-1.5 rounded inline-flex items-center transition duration-150" title="แก้ไขงวดงาน">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                    </button>
-                    ${deleteButton}
+                    ${actionButtons}
                 </td>
             `;
         }
@@ -1784,10 +1813,13 @@ function renderDocumentsList(documents) {
     }
     
     const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const project = projectsCache.find(p => p.id === currentProjectId);
+    const isOwner = isAdmin || (project && currentUser.company && project.contractor === currentUser.company);
     
     documents.forEach(doc => {
-        // V5 RBAC: Show file delete only for Admin
-        const deleteButton = isAdmin 
+        // Show file delete for owners/admins
+        const deleteButton = isOwner 
             ? `
             <button onclick="deleteDocument('${doc.id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบไฟล์แนบ">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1915,8 +1947,10 @@ function renderPOsTable(pos) {
             ? `<button onclick="deletePO('${po.id}')" class="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition duration-150">ลบ</button>` 
             : "";
             
-        // V5 RBAC: Show PO edit button only for Admin
-        const editButton = isAdmin 
+        // Show edit button for admins or company owner
+        const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+        const isOwner = isAdmin || (currentUser.company && po.contractor === currentUser.company);
+        const editButton = isOwner 
             ? `<button onclick="editPO('${po.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>` 
             : "";
         
@@ -2262,12 +2296,14 @@ function renderPOFileContainer(po, fileType) {
     document.getElementById(fileType === 'po-file' ? "detail-po-file-input" : "detail-po-quotation-input").value = "";
     
     const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const isOwner = isAdmin || (currentUser.company && po.contractor === currentUser.company);
     
     if (filePath) {
         uploadContainer.classList.add("hidden");
         
-        // V5 RBAC: Show file delete only for Admin
-        const deleteButton = isAdmin 
+        // V5 RBAC: Show file delete for owners/admins
+        const deleteButton = isOwner 
             ? `
             <button onclick="deletePOFile('${fileType}')" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบ">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2294,7 +2330,11 @@ function renderPOFileContainer(po, fileType) {
             </div>
         `;
     } else {
-        uploadContainer.classList.remove("hidden");
+        if (isOwner) {
+            uploadContainer.classList.remove("hidden");
+        } else {
+            uploadContainer.classList.add("hidden");
+        }
         container.innerHTML = `
             <span class="text-slate-400 italic">ยังไม่ได้อัปโหลดไฟล์</span>
         `;
@@ -2360,12 +2400,14 @@ function renderDeliveryFileContainer(po) {
     document.getElementById("detail-po-delivery-file-input").value = "";
     
     const isAdmin = isCurrentUserAdmin();
+    const currentUser = JSON.parse(localStorage.getItem("current_user") || "{}");
+    const isOwner = isAdmin || (currentUser.company && po.contractor === currentUser.company);
     
     if (po.delivery_file_path) {
         uploadContainer.classList.add("hidden");
         
-        // V5 RBAC: Show file delete only for Admin
-        const deleteButton = isAdmin 
+        // V5 RBAC: Show file delete for owners/admins
+        const deleteButton = isOwner 
             ? `
             <button type="button" onclick="deleteDeliveryFile()" class="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition duration-150" title="ลบ">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2392,7 +2434,11 @@ function renderDeliveryFileContainer(po) {
             </div>
         `;
     } else {
-        uploadContainer.classList.remove("hidden");
+        if (isOwner) {
+            uploadContainer.classList.remove("hidden");
+        } else {
+            uploadContainer.classList.add("hidden");
+        }
         fileContainer.innerHTML = `
             <span class="text-slate-400 italic">ยังไม่ได้แนบหลักฐานใบส่งมอบของ</span>
         `;
