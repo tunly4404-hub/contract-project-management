@@ -1325,9 +1325,23 @@ def health_check(db = Depends(get_db)):
         status["key_path"] = key_path
         status["key_size"] = os.path.getsize(key_path) if status["key_exists"] else 0
         
-        users_stream = db.collection("users").limit(1).stream()
-        status["firestore_connected"] = True
-        status["users_exist"] = next(users_stream, None) is not None
+        # Check environment variable
+        cred_env = os.environ.get("FIREBASE_CREDENTIALS")
+        status["env_exists"] = cred_env is not None
+        status["env_length"] = len(cred_env) if cred_env else 0
+        status["env_snippet"] = cred_env[:30] + "..." if cred_env else None
+        
+        # Check fallback key in workspace root
+        status["root_key_exists"] = os.path.exists("serviceAccountKey.json")
+        
+        # Try database call
+        if db is not None:
+            users_stream = db.collection("users").limit(1).stream()
+            status["firestore_connected"] = True
+            status["users_exist"] = next(users_stream, None) is not None
+        else:
+            status["firestore_connected"] = False
+            status["error"] = "Firestore database client is None"
     except Exception as e:
         status["firestore_connected"] = False
         status["error"] = str(e)
