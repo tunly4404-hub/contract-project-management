@@ -1315,6 +1315,25 @@ def export_po_detail_excel(po_id: str, current_user = Depends(get_current_active
         raise HTTPException(status_code=500, detail=f"Error exporting PO detail Excel: {str(e)}")
 
 
+@app.get("/api/health")
+def health_check(db = Depends(get_db)):
+    status = {}
+    try:
+        import os
+        key_path = os.path.join(PERSISTENT_DIR, "serviceAccountKey.json")
+        status["key_exists"] = os.path.exists(key_path)
+        status["key_path"] = key_path
+        status["key_size"] = os.path.getsize(key_path) if status["key_exists"] else 0
+        
+        users_stream = db.collection("users").limit(1).stream()
+        status["firestore_connected"] = True
+        status["users_exist"] = next(users_stream, None) is not None
+    except Exception as e:
+        status["firestore_connected"] = False
+        status["error"] = str(e)
+    return status
+
+
 # Mount Static and Uploads directories
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
