@@ -1331,6 +1331,15 @@ def health_check(db = Depends(get_db)):
         status["env_length"] = len(cred_env) if cred_env else 0
         status["env_snippet"] = cred_env[:30] + "..." if cred_env else None
         
+        # Parse project_id from env JSON
+        if cred_env:
+            try:
+                import json
+                env_dict = json.loads(cred_env)
+                status["env_project_id"] = env_dict.get("project_id")
+            except Exception as json_err:
+                status["env_project_id_error"] = str(json_err)
+        
         # Check fallback key in workspace root
         status["root_key_exists"] = os.path.exists("serviceAccountKey.json")
         
