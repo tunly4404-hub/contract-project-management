@@ -946,14 +946,20 @@ function filterProjects() {
     const statusFilter = document.getElementById("status-filter").value;
     const biddingFilter = document.getElementById("bidding-filter").value;
     
+    // Split search query by comma (,) and trim whitespaces, filter out empty terms
+    const searchTerms = searchQuery.split(",").map(term => term.trim()).filter(term => term.length > 0);
+    
     const filtered = projectsCache.filter(project => {
-        const matchesSearch = project.name.toLowerCase().includes(searchQuery) ||
-                             project.owner.toLowerCase().includes(searchQuery) ||
-                             (project.contractor && project.contractor.toLowerCase().includes(searchQuery)) ||
-                             (project.job_type && project.job_type.toLowerCase().includes(searchQuery)) ||
-                             (project.fiscal_year && project.fiscal_year.toString().includes(searchQuery)) ||
-                             (project.bidding_type && project.bidding_type.toLowerCase().includes(searchQuery)) ||
-                             project.status.toLowerCase().includes(searchQuery);
+        // If there are search terms, the project must match ALL of them (AND search)
+        const matchesSearch = searchTerms.length === 0 || searchTerms.every(term => {
+            return project.name.toLowerCase().includes(term) ||
+                   project.owner.toLowerCase().includes(term) ||
+                   (project.contractor && project.contractor.toLowerCase().includes(term)) ||
+                   (project.job_type && project.job_type.toLowerCase().includes(term)) ||
+                   (project.fiscal_year && project.fiscal_year.toString().includes(term)) ||
+                   (project.bidding_type && project.bidding_type.toLowerCase().includes(term)) ||
+                   project.status.toLowerCase().includes(term);
+        });
                              
         const matchesStatus = statusFilter === "ทั้งหมด" || project.status === statusFilter;
         const matchesBidding = biddingFilter === "ทั้งหมด" || project.bidding_type === biddingFilter || (biddingFilter === "" && !project.bidding_type);
@@ -1994,16 +2000,22 @@ function filterPOs() {
     const searchQuery = document.getElementById("po-search-input").value.toLowerCase();
     const statusFilter = document.getElementById("po-status-filter").value;
     
+    // Split search query by comma (,) and trim whitespaces, filter out empty terms
+    const searchTerms = searchQuery.split(",").map(term => term.trim()).filter(term => term.length > 0);
+    
     const filtered = posCache.filter(po => {
         let projName = "";
         const linkedProj = projectsCache.find(p => p.id === po.project_id);
         if (linkedProj) projName = linkedProj.name;
         
-        const matchesSearch = po.po_number.toLowerCase().includes(searchQuery) ||
-                             projName.toLowerCase().includes(searchQuery) ||
-                             (po.owner && po.owner.toLowerCase().includes(searchQuery)) ||
-                             po.contractor.toLowerCase().includes(searchQuery) ||
-                             po.material_type.toLowerCase().includes(searchQuery);
+        // If there are search terms, the PO must match ALL of them (AND search)
+        const matchesSearch = searchTerms.length === 0 || searchTerms.every(term => {
+            return po.po_number.toLowerCase().includes(term) ||
+                   projName.toLowerCase().includes(term) ||
+                   (po.owner && po.owner.toLowerCase().includes(term)) ||
+                   po.contractor.toLowerCase().includes(term) ||
+                   po.material_type.toLowerCase().includes(term);
+        });
                              
         const matchesStatus = statusFilter === "ทั้งหมด" || po.delivery_status === statusFilter;
         
