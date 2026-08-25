@@ -1341,7 +1341,9 @@ def health_check(db = Depends(get_db)):
             try:
                 import json
                 env_dict = json.loads(cred_env)
-                status["env_project_id"] = env_dict.get("project_id")
+                pid = env_dict.get("project_id")
+                status["env_project_id"] = pid
+                status["env_project_id_repr"] = repr(pid)
             except Exception as json_err:
                 status["env_project_id_error"] = str(json_err)
         
