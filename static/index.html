@@ -396,6 +396,14 @@
                         <input type="text" id="search-input" onkeyup="filterProjects()" placeholder="ค้นหาตามชื่อโครงการ, เลขที่สัญญา, บริษัทที่รับผิดชอบ, ประเภทงาน..." class="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50/50">
                     </div>
                     <div class="flex items-center gap-3">
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">วิธีการจัดหา:</label>
+                        <select id="bidding-filter" onchange="filterProjects()" class="border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="ทั้งหมด">ทั้งหมด</option>
+                            <option value="E-bidding">E-bidding</option>
+                            <option value="เฉพาะเจาะจง">เฉพาะเจาะจง</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-3">
                         <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">สถานะดำเนินการ:</label>
                         <select id="status-filter" onchange="filterProjects()" class="border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                             <option value="ทั้งหมด">ทั้งหมด</option>
@@ -698,6 +706,14 @@
                             </div>
                         </div>
                         <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase">วิธีการจัดหา</label>
+                            <select id="form-bidding-type" class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                <option value="">-- เลือกวิธีการจัดหา --</option>
+                                <option value="E-bidding">E-bidding</option>
+                                <option value="เฉพาะเจาะจง">เฉพาะเจาะจง</option>
+                            </select>
+                        </div>
+                        <div>
                             <label class="block text-xs font-bold text-slate-700 uppercase">การโอนสิทธิ์โครงการ <span class="text-rose-500">*</span></label>
                             <select id="form-right-assignment" onchange="toggleRightAssignmentPercentageInput()" required class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                                 <option value="ไม่ได้โอนสิทธิ์">ไม่ได้โอนสิทธิ์</option>
@@ -898,6 +914,8 @@
                             <span id="detail-contractor" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">ประเภทงาน:</span>
                             <span id="detail-job-type" class="text-slate-800 text-right">-</span>
+                            <span class="text-slate-400 font-medium">วิธีการจัดหา:</span>
+                            <span id="detail-bidding-type" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">ปีงบประมาณ:</span>
                             <span id="detail-fiscal-year" class="text-slate-800 text-right">-</span>
                             <span class="text-slate-400 font-medium">งบประมาณรวม:</span>

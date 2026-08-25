@@ -186,6 +186,7 @@ class ProjectBase(BaseModel):
     job_type: Optional[str] = None
     right_assignment: str = "ไม่ได้โอนสิทธิ์" # ไม่ได้โอนสิทธิ์, โอนสิทธิ์
     right_assignment_percentage: Optional[float] = None
+    bidding_type: Optional[str] = None
 
     # V5 Audit fields
     created_by: Optional[str] = None
@@ -229,6 +230,7 @@ class ProjectUpdate(BaseModel):
     job_type: Optional[str] = None
     right_assignment: Optional[str] = None
     right_assignment_percentage: Optional[float] = None
+    bidding_type: Optional[str] = None
 
 class Project(ProjectBase):
     id: str

@@ -909,12 +909,19 @@ function renderProjectsTable(projects) {
         const editButton = isOwner 
             ? `<button onclick="editProject('${project.id}')" class="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition duration-150">แก้ไข</button>` 
             : "";
+            
+        let biddingBadge = "";
+        if (project.bidding_type === "E-bidding") {
+            biddingBadge = `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">E-bidding</span>`;
+        } else if (project.bidding_type === "เฉพาะเจาะจง") {
+            biddingBadge = `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-100">เฉพาะเจาะจง</span>`;
+        }
         
         const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/50 transition duration-150";
         row.innerHTML = `
             <td class="px-6 py-4 font-semibold text-slate-500 text-xs">${index + 1}</td>
-            <td class="px-6 py-4 font-semibold text-slate-900 text-sm hover:text-indigo-600 cursor-pointer" onclick="openDetailModal('${project.id}')">${project.contract_number ? `[${project.contract_number}] ` : ""}${project.name}</td>
+            <td class="px-6 py-4 font-semibold text-slate-900 text-sm hover:text-indigo-600 cursor-pointer" onclick="openDetailModal('${project.id}')">${project.contract_number ? `[${project.contract_number}] ` : ""}${project.name}${biddingBadge}</td>
             <td class="px-6 py-4 text-slate-500 text-sm">${project.owner}</td>
             <td class="px-6 py-4 text-slate-700 text-sm font-medium">${project.contractor || "-"}</td>
             <td class="px-6 py-4 text-slate-600 text-sm">${project.job_type || "-"}</td>
@@ -937,6 +944,7 @@ function renderProjectsTable(projects) {
 function filterProjects() {
     const searchQuery = document.getElementById("search-input").value.toLowerCase();
     const statusFilter = document.getElementById("status-filter").value;
+    const biddingFilter = document.getElementById("bidding-filter").value;
     
     const filtered = projectsCache.filter(project => {
         const matchesSearch = project.name.toLowerCase().includes(searchQuery) ||
@@ -944,11 +952,13 @@ function filterProjects() {
                              (project.contractor && project.contractor.toLowerCase().includes(searchQuery)) ||
                              (project.job_type && project.job_type.toLowerCase().includes(searchQuery)) ||
                              (project.fiscal_year && project.fiscal_year.toString().includes(searchQuery)) ||
+                             (project.bidding_type && project.bidding_type.toLowerCase().includes(searchQuery)) ||
                              project.status.toLowerCase().includes(searchQuery);
                              
         const matchesStatus = statusFilter === "ทั้งหมด" || project.status === statusFilter;
+        const matchesBidding = biddingFilter === "ทั้งหมด" || project.bidding_type === biddingFilter || (biddingFilter === "" && !project.bidding_type);
         
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesBidding;
     });
     
     renderProjectsTable(filtered);
@@ -977,6 +987,7 @@ function openProjectModal(title = "เพิ่มโครงการสัญ
     document.getElementById("form-guarantee-expiry-date").value = "";
     document.getElementById("form-fiscal-year").value = "";
     document.getElementById("form-contract-duration-days").value = "";
+    document.getElementById("form-bidding-type").value = "";
     
     toggleBankGuaranteeFields();
     toggleRightAssignmentPercentageInput();
@@ -1068,7 +1079,8 @@ async function saveProject(event) {
         guarantee_expiry_date: expiryVal,
         job_type: jobTypeVal || null,
         right_assignment: rightAssignmentVal,
-        right_assignment_percentage: rightPercent
+        right_assignment_percentage: rightPercent,
+        bidding_type: document.getElementById("form-bidding-type").value || null
     };
     
     try {
@@ -1200,6 +1212,7 @@ function editProject(id) {
     document.getElementById("form-right-assignment-percentage").value = project.right_assignment_percentage !== null ? project.right_assignment_percentage : "";
     document.getElementById("form-guarantee-bank").value = project.guarantee_bank || "";
     document.getElementById("form-guarantee-expiry-date").value = project.guarantee_expiry_date || "";
+    document.getElementById("form-bidding-type").value = project.bidding_type || "";
     
     toggleBankGuaranteeFields();
     toggleRightAssignmentPercentageInput();
@@ -1270,6 +1283,7 @@ async function openDetailModal(id) {
         document.getElementById("detail-contract-number").innerText = project.contract_number || "-";
         document.getElementById("detail-contractor").innerText = project.contractor || "-";
         document.getElementById("detail-job-type").innerText = project.job_type || "-";
+        document.getElementById("detail-bidding-type").innerText = project.bidding_type || "-";
         document.getElementById("detail-budget").innerText = formatCurrency(project.budget);
         document.getElementById("detail-fiscal-year").innerText = project.fiscal_year || "-";
         document.getElementById("detail-contract-signing-date").innerText = formatThaiDate(project.contract_signing_date);
