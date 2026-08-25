@@ -1331,6 +1331,11 @@ def health_check(db = Depends(get_db)):
         status["env_length"] = len(cred_env) if cred_env else 0
         status["env_snippet"] = cred_env[:30] + "..." if cred_env else None
         
+        # Check other GCP env variables
+        status["gcp_creds_env"] = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        status["gcp_project_env"] = os.environ.get("GOOGLE_CLOUD_PROJECT")
+        status["gcloud_project_env"] = os.environ.get("GCLOUD_PROJECT")
+        
         # Parse project_id from env JSON
         if cred_env:
             try:
