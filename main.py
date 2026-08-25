@@ -1345,6 +1345,7 @@ def health_check(db = Depends(get_db)):
         
         # Try database call
         if db is not None:
+            status["firestore_project"] = db.project
             users_stream = db.collection("users").limit(1).stream()
             status["firestore_connected"] = True
             status["users_exist"] = next(users_stream, None) is not None
