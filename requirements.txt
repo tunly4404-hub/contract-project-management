@@ -7,3 +7,4 @@ python-multipart
 requests
 openpyxl
 gunicorn
+google-api-core<2.35.0

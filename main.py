@@ -1317,51 +1317,16 @@ def export_po_detail_excel(po_id: str, current_user = Depends(get_current_active
 
 @app.get("/api/health")
 def health_check(db = Depends(get_db)):
-    status = {}
+    status = {"status": "ok"}
     try:
-        import os
-        key_path = os.path.join(PERSISTENT_DIR, "serviceAccountKey.json")
-        status["key_exists"] = os.path.exists(key_path)
-        status["key_path"] = key_path
-        status["key_size"] = os.path.getsize(key_path) if status["key_exists"] else 0
-        
-        # Check environment variable
-        cred_env = os.environ.get("FIREBASE_CREDENTIALS")
-        status["env_exists"] = cred_env is not None
-        status["env_length"] = len(cred_env) if cred_env else 0
-        status["env_snippet"] = cred_env[:30] + "..." if cred_env else None
-        
-        # Check other GCP env variables
-        status["gcp_creds_env"] = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        status["gcp_project_env"] = os.environ.get("GOOGLE_CLOUD_PROJECT")
-        status["gcloud_project_env"] = os.environ.get("GCLOUD_PROJECT")
-        
-        # Parse project_id from env JSON
-        if cred_env:
-            try:
-                import json
-                env_dict = json.loads(cred_env)
-                pid = env_dict.get("project_id")
-                status["env_project_id"] = pid
-                status["env_project_id_repr"] = repr(pid)
-            except Exception as json_err:
-                status["env_project_id_error"] = str(json_err)
-        
-        # Check fallback key in workspace root
-        status["root_key_exists"] = os.path.exists("serviceAccountKey.json")
-        
-        # Try database call
         if db is not None:
-            status["firestore_project"] = db.project
-            users_stream = db.collection("users").limit(1).stream()
-            status["firestore_connected"] = True
-            status["users_exist"] = next(users_stream, None) is not None
+            # Query a user metadata doc to verify connectivity
+            db.collection("users").limit(1).get()
+            status["firestore"] = "connected"
         else:
-            status["firestore_connected"] = False
-            status["error"] = "Firestore database client is None"
+            status["firestore"] = "disconnected"
     except Exception as e:
-        status["firestore_connected"] = False
-        status["error"] = str(e)
+        status["firestore"] = f"error: {str(e)}"
     return status
 
 
